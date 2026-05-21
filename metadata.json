@@ -1,0 +1,6 @@
+{
+  "name": "Notes Keep Local",
+  "description": "A clean, minimalist local notes application with the ability to import and export Google Keep notes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

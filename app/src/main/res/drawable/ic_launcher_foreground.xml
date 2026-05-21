@@ -1,0 +1,39 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Beautiful notes folder with checkmark and list rows representing Local Google Keep -->
+    <!-- External notebook pad -->
+    <path
+        android:fillColor="#EADDFF"
+        android:pathData="M32,24h44c3.3,0,6,2.7,6,6v48c0,3.3-2.7,6-6,6H32c-3.3,0-6-2.7-6-6V30C26,26.7,28.7,24,32,24z" />
+    
+    <!-- Checklist page on top -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,30h36c2.2,0,4,1.8,4,4v40c0,2.2-1.8,4-4,4H36c-2.2,0-4-1.8-4-4V34C32,31.8,33.8,30,36,30z" />
+
+    <!-- Cute yellow brand check circle in bottom corner -->
+    <path
+        android:fillColor="#FFF9C4"
+        android:pathData="M66,60m-14,0a14,14 0 1,1 28,0a14,14 0 1,1 -28,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#6750A4"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M59,60l5,5l9,-9" />
+
+    <!-- Checklist rows on notebook page representing Keep list items -->
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M40,38h16v3H40z" />
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M40,45h12v3H40z" />
+    <path
+        android:fillColor="#6750A4"
+        android:pathData="M40,52h8v3H40z" />
+</vector>
