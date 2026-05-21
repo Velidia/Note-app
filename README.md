@@ -1,21 +1,38 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 📱 Notes Keep Local
 
-# Run and deploy your AI Studio app
+A modern, native Android notes application built using **Kotlin** and **Jetpack Compose**. This app provides a fully local, privacy-first note-taking experience with an architecture specifically designed to replicate and match Google Keep's rich data structures.
 
-This contains everything you need to run your app locally.
+---
 
-View your app in AI Studio: https://ai.studio/apps/43961bfe-62cc-4828-b5fb-0207d5f0331c
+## ✨ Features (Based on Local Room DB)
 
-## Run Locally
+* 🔒 **100% Offline & Local:** Built on top of Android's **Room Database** framework. All notes, checklists, and configurations stay inside your local `notes_database` safely.
+* 📝 **Hybrid Content (Text & Checklists):** Supports both plain text notes and interactive markdown checklist items formatted natively as `[ ] Todo` or `[x] Done`.
+* 📌 **Pin & Archive Management:** Keep your dashboard organized with native note prioritization (Pinned notes stay on top) and archiving capabilities.
+* 🎨 **Keep-Aligned Custom Themes:** Supports background customization per note using a 6-digit Hex Color (`colorHex`) system to match standard Google Keep aesthetics.
+* 🖼️ **Local Image Mapping:** Integrated with **Coil Compose** to seamlessly attach and load local image paths (`imagePath`) within your notes.
 
-**Prerequisites:**  [Android Studio](https://developer.android.com/studio)
+---
 
+## 🛠️ Technical Specifications & Stack
 
-1. Open Android Studio
-2. Select **Open** and choose the directory containing this project
-3. Allow Android Studio to fix any incompatibilities as it imports the project.
-4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
-5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
-6. Run the app on an emulator or physical device
+* **UI Engine:** Jetpack Compose (using Material 3 BOM)
+* **Local Persistence:** Room Database with destructive migration fallback
+* **JSON Processing:** Moshi Kotlin (with KSP Codegen compiler tools)
+* **Image Loading:** Coil Compose
+* **Target SDK:** 36 (Android 16)
+* **Min SDK:** 24 (Android 7.0)
+
+---
+
+## 🚀 Local Deployment Guide
+
+### Prerequisites
+* [Android Studio](https://developer.android.com/studio) installed.
+
+### Setup Steps
+
+1. **Clone the Repository:**
+   ```bash
+   git clone [https://github.com/Velidia/Note-app.git](https://github.com/Velidia/Note-app.git)
+   cd Note-app
