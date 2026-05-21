@@ -116,7 +116,9 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun importKeepJsonContent(jsonStr: String): Boolean {
-        val parsed = KeepParser.parseKeepJson(jsonStr)
+        val app = getApplication<Application>()
+        val imagesDir = java.io.File(app.filesDir, "keep_images")
+        val parsed = KeepParser.parseKeepJson(jsonStr, imagesDir)
         return if (parsed != null) {
             viewModelScope.launch {
                 repository.insert(parsed)
@@ -149,8 +151,9 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
                 val inputStream = contentResolver.openInputStream(uri)
                 if (inputStream != null) {
+                    val imagesDir = java.io.File(context.filesDir, "keep_images").apply { mkdirs() }
                     if (isZip) {
-                        val importedNotes = KeepParser.parseKeepZip(inputStream)
+                        val importedNotes = KeepParser.parseKeepZip(inputStream, context)
                         var count = 0
                         importedNotes.forEach { note ->
                             repository.insert(note)
@@ -160,7 +163,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
                     } else {
                         // Otherwise assume JSON Keep single note takeout
                         val jsonStr = inputStream.bufferedReader().readText()
-                        val note = KeepParser.parseKeepJson(jsonStr)
+                        val note = KeepParser.parseKeepJson(jsonStr, imagesDir)
                         if (note != null) {
                             repository.insert(note)
                             importResult.value = "Berhasil mengimpor: '${note.title}'"

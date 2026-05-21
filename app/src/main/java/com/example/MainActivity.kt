@@ -5,16 +5,21 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -43,6 +48,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.data.Note
@@ -52,6 +58,8 @@ import com.example.ui.theme.*
 import com.example.util.KeepParser
 import com.example.viewmodel.NoteViewModel
 import kotlinx.coroutines.launch
+import coil.compose.AsyncImage
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
@@ -92,6 +100,28 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        
+        // Support devices with high screen refresh rates (e.g. 90Hz, 120Hz) programmatically
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            try {
+                val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                    display
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay
+                }
+                val modes = display?.supportedModes
+                val maxRefreshMode = modes?.maxByOrNull { it.refreshRate }
+                if (maxRefreshMode != null) {
+                    val lp = window.attributes
+                    lp.preferredDisplayModeId = maxRefreshMode.modeId
+                    window.attributes = lp
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
         setContent {
             val viewModel: NoteViewModel = viewModel()
             val themeOption by viewModel.darkModeOption.collectAsStateWithLifecycle()
@@ -144,41 +174,132 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
         }
     }
 
-    Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            NotesBottomNavigation(
-                activeTab = activeTab,
-                onTabSelected = { tabName ->
-                    viewModel.currentTab.value = tabName
-                }
-            )
-        },
-        floatingActionButton = {
-            if (activeTab != "setelan") {
-                NotesFloatingActionButton(
-                    onAddTextNote = {
-                        showEditDialog = Note(title = "", content = "", isChecklist = false)
-                    },
-                    onAddChecklistNote = {
-                        showEditDialog = Note(title = "", content = "", isChecklist = true)
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = if (LocalDarkTheme.current) Color(0xFF1C1B1F) else Color.White,
+                modifier = Modifier.width(300.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(if (LocalDarkTheme.current) Color(0xFF2D2A33) else LightPurple)
+                        .padding(horizontal = 24.dp, vertical = 32.dp)
+                ) {
+                    Column {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "App Logo",
+                            tint = if (LocalDarkTheme.current) Color.White else PrimaryPurple,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Keep Notes Lite",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (LocalDarkTheme.current) Color.White else TextPrimary
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Sinkronisasi Google Keep",
+                            fontSize = 11.sp,
+                            color = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary
+                        )
                     }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                NavigationDrawerItem(
+                    icon = { Icon(imageVector = Icons.Default.Description, contentDescription = "Catatan") },
+                    label = { Text(text = "Catatan", fontSize = 14.sp) },
+                    selected = activeTab == "catatan",
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        viewModel.currentTab.value = "catatan"
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = if (LocalDarkTheme.current) Color(0xFF381E72) else LightPurple,
+                        selectedIconColor = if (LocalDarkTheme.current) Color.White else PrimaryPurple,
+                        selectedTextColor = if (LocalDarkTheme.current) Color.White else PrimaryPurple,
+                        unselectedIconColor = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary,
+                        unselectedTextColor = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+                
+                NavigationDrawerItem(
+                    icon = { Icon(imageVector = Icons.Default.List, contentDescription = "Tugas") },
+                    label = { Text(text = "Tugas", fontSize = 14.sp) },
+                    selected = activeTab == "tugas",
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        viewModel.currentTab.value = "tugas"
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = if (LocalDarkTheme.current) Color(0xFF381E72) else LightPurple,
+                        selectedIconColor = if (LocalDarkTheme.current) Color.White else PrimaryPurple,
+                        selectedTextColor = if (LocalDarkTheme.current) Color.White else PrimaryPurple,
+                        unselectedIconColor = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary,
+                        unselectedTextColor = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+                
+                NavigationDrawerItem(
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "Setelan") },
+                    label = { Text(text = "Setelan", fontSize = 14.sp) },
+                    selected = activeTab == "setelan",
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        viewModel.currentTab.value = "setelan"
+                    },
+                    colors = NavigationDrawerItemDefaults.colors(
+                        selectedContainerColor = if (LocalDarkTheme.current) Color(0xFF381E72) else LightPurple,
+                        selectedIconColor = if (LocalDarkTheme.current) Color.White else PrimaryPurple,
+                        selectedTextColor = if (LocalDarkTheme.current) Color.White else PrimaryPurple,
+                        unselectedIconColor = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary,
+                        unselectedTextColor = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                 )
             }
         }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(if (LocalDarkTheme.current) Color(0xFF141218) else BackgroundPurple)
-                .padding(innerPadding)
-        ) {
-            // Elegant Top search App Bar representing "Clean Minimalism" header
-            HeaderSearchBar(
-                query = testQuery,
-                onQueryChanged = { viewModel.searchQuery.value = it },
-                userNameInitial = "L"
-            )
+    ) {
+        Scaffold(
+            modifier = Modifier.fillMaxSize(),
+            floatingActionButton = {
+                if (activeTab != "setelan") {
+                    NotesFloatingActionButton(
+                        onAddTextNote = {
+                            showEditDialog = Note(title = "", content = "", isChecklist = false)
+                        },
+                        onAddChecklistNote = {
+                            showEditDialog = Note(title = "", content = "", isChecklist = true)
+                        }
+                    )
+                }
+            }
+        ) { innerPadding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (LocalDarkTheme.current) Color(0xFF141218) else BackgroundPurple)
+                    .padding(innerPadding)
+            ) {
+                // Elegant Top search App Bar representing "Clean Minimalism" header
+                HeaderSearchBar(
+                    query = testQuery,
+                    onQueryChanged = { viewModel.searchQuery.value = it },
+                    onMenuClick = {
+                        scope.launch { drawerState.open() }
+                    }
+                )
 
             // Horizontal Filter bar to access normal vs archived notes
             if (activeTab != "setelan") {
@@ -223,7 +344,13 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                                     items(notes, key = { it.id }) { note ->
                                         NoteGridCard(
                                             note = note,
-                                            onClick = { showEditDialog = note },
+                                            modifier = Modifier.animateItemPlacement(
+                                                 animationSpec = spring(
+                                                     dampingRatio = Spring.DampingRatioNoBouncy,
+                                                     stiffness = Spring.StiffnessMediumLow
+                                                 )
+                                             ),
+                                             onClick = { showEditDialog = note },
                                             onPinChanged = { viewModel.togglePin(note) },
                                             onChecklistItemToggled = { itemIndex, checkedState ->
                                                 val items = note.getChecklistItems().toMutableList()
@@ -250,29 +377,55 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
             }
         }
     }
+}
 
-    // Modal Sheet: Note Creator and Editor
-    showEditDialog?.let { note ->
-        NoteEditDialog(
-            note = note,
-            onDismiss = { showEditDialog = null },
-            onSave = { updatedNote ->
-                viewModel.saveNote(updatedNote)
-                showEditDialog = null
-            },
-            onDelete = {
-                viewModel.deleteNote(note.id)
-                showEditDialog = null
-            },
-            onArchiveToggle = {
-                viewModel.toggleArchive(note)
-                showEditDialog = null
-            },
-            onPinToggle = {
-                viewModel.togglePin(note)
-                showEditDialog = showEditDialog?.copy(isPinned = !note.isPinned)
-            }
-        )
+    // Active note snapshot for smooth transition slide-out
+    var activeEditNote by remember { mutableStateOf<Note?>(null) }
+    val isEditOpen = showEditDialog != null
+    if (isEditOpen && showEditDialog != activeEditNote) {
+        activeEditNote = showEditDialog
+    }
+
+    // Modal Sheet: Note Creator and Editor with elegant transitions
+    AnimatedVisibility(
+        visible = isEditOpen,
+        enter = slideInVertically(
+            initialOffsetY = { it },
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        ) + fadeIn(animationSpec = spring(stiffness = Spring.StiffnessMediumLow)),
+        exit = slideOutVertically(
+            targetOffsetY = { it },
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        ) + fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
+    ) {
+        activeEditNote?.let { note ->
+            NoteEditDialog(
+                note = note,
+                onDismiss = { showEditDialog = null },
+                onSave = { updatedNote ->
+                    viewModel.saveNote(updatedNote)
+                    showEditDialog = null
+                },
+                onDelete = {
+                    viewModel.deleteNote(note.id)
+                    showEditDialog = null
+                },
+                onArchiveToggle = {
+                    viewModel.toggleArchive(note)
+                    showEditDialog = null
+                },
+                onPinToggle = {
+                    viewModel.togglePin(note)
+                    showEditDialog = showEditDialog?.copy(isPinned = !note.isPinned)
+                }
+            )
+        }
     }
 
     // Modal Dialog: Import Keep Takeout Hub
@@ -308,7 +461,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
 fun HeaderSearchBar(
     query: String,
     onQueryChanged: (String) -> Unit,
-    userNameInitial: String
+    onMenuClick: () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
     val barBgColor = if (isDark) Color(0xFF211F24) else BarColor
@@ -324,14 +477,19 @@ fun HeaderSearchBar(
                 .background(barBgColor, CircleShape)
                 .padding(horizontal = 16.dp)
         ) {
-            Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = "Menu icon",
-                tint = textSecondaryColor,
-                modifier = Modifier.size(24.dp)
-            )
+            IconButton(
+                onClick = onMenuClick,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = "Menu icon",
+                    tint = textSecondaryColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(8.dp))
 
             TextField(
                 value = query,
@@ -367,20 +525,6 @@ fun HeaderSearchBar(
                         tint = textSecondaryColor
                     )
                 }
-            }
-
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(32.dp)
-                    .background(PrimaryPurple, CircleShape)
-            ) {
-                Text(
-                    text = userNameInitial,
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
-                )
             }
         }
     }
@@ -499,7 +643,8 @@ fun NoteGridCard(
     note: Note,
     onClick: () -> Unit,
     onPinChanged: () -> Unit,
-    onChecklistItemToggled: (Int, Boolean) -> Unit
+    onChecklistItemToggled: (Int, Boolean) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val isDark = LocalDarkTheme.current
     val noteBg = getAdaptiveNoteColor(note.colorHex, isDark)
@@ -507,12 +652,17 @@ fun NoteGridCard(
     val textSecondaryColor = if (isDark) Color(0xFFCCC5D0) else TextSecondary
     val borderStrokeColor = if (isDark) Color(0xFF3E3D42) else BorderGray
 
+    val images = remember(note.imagePath) {
+        if (note.imagePath.isNullOrBlank()) emptyList<String>()
+        else note.imagePath.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = noteBg),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(160.dp)
+            .height(if (images.isNotEmpty()) 180.dp else 160.dp)
             .border(
                 width = 1.dp,
                 color = if (note.colorHex == "#FFFFFF" && !isDark) borderStrokeColor else if (isDark) borderStrokeColor.copy(alpha = 0.4f) else Color.Transparent,
@@ -525,10 +675,98 @@ fun NoteGridCard(
             .testTag("note_card_${note.id}")
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp)
+            modifier = Modifier.fillMaxSize()
         ) {
+            if (images.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(65.dp)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    when (images.size) {
+                        1 -> {
+                            AsyncImage(
+                                model = images[0],
+                                contentDescription = "Gambar catatan",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                        2 -> {
+                            AsyncImage(
+                                model = images[0],
+                                contentDescription = "Gambar catatan 1",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            )
+                            AsyncImage(
+                                model = images[1],
+                                contentDescription = "Gambar catatan 2",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            )
+                        }
+                        else -> {
+                            AsyncImage(
+                                model = images[0],
+                                contentDescription = "Gambar catatan 1",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            )
+                            AsyncImage(
+                                model = images[1],
+                                contentDescription = "Gambar catatan 2",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                            )
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                AsyncImage(
+                                    model = images[2],
+                                    contentDescription = "Gambar catatan 3",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                                if (images.size > 3) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(Color.Black.copy(alpha = 0.45f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "+${images.size - 2}",
+                                            color = Color.White,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(14.dp)
+            ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -611,6 +849,7 @@ fun NoteGridCard(
             }
         }
     }
+}
 }
 
 @Composable
@@ -1093,6 +1332,13 @@ fun NoteEditDialog(
     var title by remember { mutableStateOf(note.title) }
     var rawTextContent by remember { mutableStateOf(if (note.isChecklist) "" else note.content) }
     var selectedColorHex by remember { mutableStateOf(note.colorHex) }
+    var selectedImagePaths by remember {
+        mutableStateOf(
+            if (note.imagePath.isNullOrBlank()) emptyList<String>()
+            else note.imagePath.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+        )
+    }
+    var lightboxImage by remember { mutableStateOf<String?>(null) }
     
     // Checklist processing elements
     val checklistItems = remember { 
@@ -1101,6 +1347,32 @@ fun NoteEditDialog(
         }
     }
     var newItemText by remember { mutableStateOf("") }
+    val context = LocalContext.current
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            val newList = selectedImagePaths.toMutableList()
+            uris.forEach { uri ->
+                try {
+                    val contentResolver = context.contentResolver
+                    val imagesDir = java.io.File(context.filesDir, "keep_images").apply { mkdirs() }
+                    val fileName = "local_img_${System.currentTimeMillis()}_${java.util.UUID.randomUUID()}.jpg"
+                    val localFile = java.io.File(imagesDir, fileName)
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        localFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                    newList.add(localFile.absolutePath)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+            selectedImagePaths = newList
+        }
+    }
 
     val isDark = LocalDarkTheme.current
     val noteBg = getAdaptiveNoteColor(selectedColorHex, isDark)
@@ -1108,197 +1380,274 @@ fun NoteEditDialog(
     val textSecondaryColor = if (isDark) Color(0xFFCCC5D0) else TextSecondary
     val borderStrokeColor = if (isDark) Color(0xFF3E3D42) else BorderGray
 
-    Dialog(onDismissRequest = {
-        // Compose note object and save automatically when dismissing dialog
+    val saveAndDismiss = {
         val finalContent = if (note.isChecklist) {
             Note.createFromChecklist(checklistItems)
         } else {
             rawTextContent
         }
+        val finalImagePath = if (selectedImagePaths.isEmpty()) null else selectedImagePaths.joinToString(",")
+        val hasChanged = (note.id == 0) || 
+                         (title != note.title) || 
+                         (finalContent != note.content) || 
+                         (selectedColorHex != note.colorHex) ||
+                         (finalImagePath != note.imagePath)
+
+        val finalTimestamp = if (hasChanged) System.currentTimeMillis() else note.userEditedTimestamp
+
         onSave(note.copy(
             title = title,
             content = finalContent,
             colorHex = selectedColorHex,
-            userEditedTimestamp = System.currentTimeMillis()
+            userEditedTimestamp = finalTimestamp,
+            imagePath = finalImagePath
         ))
-    }) {
-        Card(
-            shape = RoundedCornerShape(24.dp),
-            colors = CardDefaults.cardColors(containerColor = noteBg),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-                .border(1.dp, borderStrokeColor, RoundedCornerShape(24.dp))
-                .testTag("edit_note_dialog")
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                // Toolbar Header
-                Row(
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    IconButton(onClick = onPinToggle) {
-                        Icon(
-                            imageVector = if (note.isPinned) Icons.Default.Star else Icons.Default.Star,
-                            contentDescription = "Pin Note",
-                            tint = if (note.isPinned) PrimaryPurple else textSecondaryColor.copy(alpha = 0.5f)
-                        )
-                    }
+        onDismiss()
+    }
 
-                    Row {
-                        IconButton(onClick = onArchiveToggle) {
+    BackHandler {
+        saveAndDismiss()
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = noteBg
+    ) {
+            Scaffold(
+                containerColor = noteBg,
+                topBar = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(onClick = { saveAndDismiss() }) {
                             Icon(
-                                imageVector = Icons.Default.Home,
-                                contentDescription = "Archive note",
-                                tint = if (note.isArchived) PrimaryPurple else textSecondaryColor.copy(alpha = 0.7f),
-                                modifier = Modifier.size(20.dp)
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Simpan dan Kembali",
+                                tint = textPrimaryColor
                             )
                         }
 
-                        if (note.id != 0) {
-                            IconButton(onClick = onDelete) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = onPinToggle) {
                                 Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete Note",
-                                    tint = NoteRed.copy(alpha = 0.9f),
-                                    modifier = Modifier.size(20.dp)
+                                    imageVector = Icons.Default.Star,
+                                    contentDescription = "Pin Note",
+                                    tint = if (note.isPinned) PrimaryPurple else textSecondaryColor.copy(alpha = 0.4f)
+                                )
+                            }
+
+                            IconButton(onClick = onArchiveToggle) {
+                                Icon(
+                                    imageVector = Icons.Default.Home,
+                                    contentDescription = "Archive note",
+                                    tint = if (note.isArchived) PrimaryPurple else textSecondaryColor.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            if (note.id != 0) {
+                                IconButton(onClick = {
+                                    onDelete()
+                                    onDismiss()
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Note",
+                                        tint = NoteRed.copy(alpha = 0.9f),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            }
+                            
+                            Spacer(modifier = Modifier.width(4.dp))
+                            
+                            TextButton(onClick = { saveAndDismiss() }) {
+                                Text(
+                                    text = "Selesai",
+                                    color = PrimaryPurple,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 15.sp
                                 )
                             }
                         }
                     }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Title Input
-                TextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    placeholder = { Text("Judul", color = textSecondaryColor.copy(alpha = 0.7f), fontSize = 18.sp, fontWeight = FontWeight.SemiBold) },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        disabledContainerColor = Color.Transparent,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        focusedTextColor = textPrimaryColor,
-                        unfocusedTextColor = textPrimaryColor
-                    ),
-                    textStyle = LocalTextStyle.current.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("edit_title_input")
-                )
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Content Area: Either Text Input or Active Checklist Composer list
-                if (note.isChecklist) {
-                    Divider(color = borderStrokeColor.copy(alpha = 0.5f))
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Display Current Checklist Items
-                    LazyColumn(
+                },
+                bottomBar = {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false)
-                            .heightIn(max = 280.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                            .background(noteBg)
+                            .navigationBarsPadding()
+                            .border(1.dp, borderStrokeColor.copy(alpha = 0.12f), RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        items(checklistItems.size) { index ->
-                            val item = checklistItems[index]
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = "Pilih Warna",
+                                tint = textSecondaryColor.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            
                             Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Checkbox(
-                                    checked = item.isChecked,
-                                    onCheckedChange = { isChecked ->
-                                        checklistItems[index] = item.copy(isChecked = isChecked)
-                                    },
-                                    colors = CheckboxDefaults.colors(checkedColor = PrimaryPurple)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = item.text,
-                                    fontSize = 13.sp,
-                                    color = if (item.isChecked) textSecondaryColor.copy(alpha = 0.5f) else textPrimaryColor,
-                                    textDecoration = if (item.isChecked) TextDecoration.LineThrough else null,
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(
-                                    onClick = { checklistItems.removeAt(index) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = "Delete Item",
-                                        tint = textSecondaryColor.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(16.dp)
+                                KeepParser.KEEP_COLORS_MAP.forEach { (hex, _) ->
+                                    val color = getAdaptiveNoteColor(hex, isDark)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(color)
+                                            .border(
+                                                width = if (selectedColorHex == hex) 2.5.dp else 1.dp,
+                                                color = if (selectedColorHex == hex) PrimaryPurple else borderStrokeColor.copy(alpha = 0.3f),
+                                                shape = CircleShape
+                                            )
+                                            .clickable { selectedColorHex = hex }
                                     )
                                 }
                             }
                         }
-                    }
-
-                    // Add checklist item Row
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "New item placeholder",
-                            tint = textSecondaryColor,
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        TextField(
-                            value = newItemText,
-                            onValueChange = { newItemText = it },
-                            placeholder = { Text("Tambahkan item checklist...", color = textSecondaryColor.copy(alpha = 0.7f), fontSize = 13.sp) },
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Transparent,
-                                unfocusedContainerColor = Color.Transparent,
-                                disabledContainerColor = Color.Transparent,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent,
-                                focusedTextColor = textPrimaryColor,
-                                unfocusedTextColor = textPrimaryColor
-                            ),
-                            maxLines = 1,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                            keyboardActions = KeyboardActions(onDone = {
-                                if (newItemText.isNotEmpty()) {
-                                    checklistItems.add(ChecklistItem(newItemText, false))
-                                    newItemText = ""
-                                }
-                            }),
-                            modifier = Modifier.weight(1f).testTag("add_item_input")
-                        )
-                        if (newItemText.isNotEmpty()) {
+                        
+                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderStrokeColor.copy(alpha = 0.1f))
+                        
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
                             IconButton(onClick = {
-                                checklistItems.add(ChecklistItem(newItemText, false))
-                                newItemText = ""
+                                try {
+                                    imagePickerLauncher.launch("image/*")
+                                } catch (e: Exception) {
+                                    Toast.makeText(context, "Tidak ada aplikasi untuk memilih gambar", Toast.LENGTH_SHORT).show()
+                                }
                             }) {
-                                Icon(
-                                    imageVector = Icons.Default.Done,
-                                    contentDescription = "Confirm add item",
-                                    tint = PrimaryPurple
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Image,
+                                        contentDescription = "Tambah Foto",
+                                        tint = PrimaryPurple,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                    Text(
+                                        text = "Gambar (${selectedImagePaths.size})",
+                                        color = textSecondaryColor,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+                            
+                            val editingTime = remember(note.userEditedTimestamp) {
+                                val date = java.util.Date(note.userEditedTimestamp)
+                                val format = java.text.SimpleDateFormat("dd MMM, HH:mm", java.util.Locale.getDefault())
+                                format.format(date)
+                            }
+                            Text(
+                                text = "Diedit $editingTime",
+                                color = textSecondaryColor.copy(alpha = 0.5f),
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                }
+            ) { paddingValues ->
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(paddingValues)
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    if (selectedImagePaths.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            selectedImagePaths.forEachIndexed { index, path ->
+                                Box(
+                                    modifier = Modifier
+                                        .width(260.dp)
+                                        .height(170.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.Black.copy(alpha = 0.05f))
+                                        .clickable { lightboxImage = path }
+                                ) {
+                                    AsyncImage(
+                                        model = path,
+                                        contentDescription = "Gambar catatan",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    
+                                    IconButton(
+                                        onClick = { 
+                                            selectedImagePaths = selectedImagePaths.toMutableList().apply { removeAt(index) }
+                                        },
+                                        modifier = Modifier
+                                            .align(Alignment.TopEnd)
+                                            .padding(6.dp)
+                                            .background(Color.Black.copy(alpha = 0.5f), CircleShape)
+                                            .size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Hapus Gambar",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                    
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(6.dp)
+                                            .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = "Full Screen",
+                                            color = Color.White,
+                                            fontSize = 9.sp
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
-                } else {
-                    // Raw string Text area input
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
                     TextField(
-                        value = rawTextContent,
-                        onValueChange = { rawTextContent = it },
-                        placeholder = { Text("Tulis ide atau catatan disini...", color = textSecondaryColor.copy(alpha = 0.7f), fontSize = 14.sp) },
+                        value = title,
+                        onValueChange = { title = it },
+                        placeholder = { Text("Judul", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 22.sp, fontWeight = FontWeight.Bold) },
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
@@ -1308,75 +1657,180 @@ fun NoteEditDialog(
                             focusedTextColor = textPrimaryColor,
                             unfocusedTextColor = textPrimaryColor
                         ),
-                        textStyle = LocalTextStyle.current.copy(fontSize = 14.sp, lineHeight = 20.sp),
+                        textStyle = LocalTextStyle.current.copy(fontSize = 22.sp, fontWeight = FontWeight.Bold),
+                        singleLine = true,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f, fill = false)
-                            .heightIn(min = 150.dp, max = 320.dp)
-                            .testTag("edit_content_input")
+                            .testTag("edit_title_input")
                     )
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
+                    HorizontalDivider(color = borderStrokeColor.copy(alpha = 0.12f))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                // Color picker bubble drawer
-                Text(
-                    text = "Ganti Warna Catatan",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = textSecondaryColor
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(6),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.fillMaxWidth().height(64.dp)
-                ) {
-                    items(KeepParser.KEEP_COLORS_MAP) { pair ->
-                        val (hex, _) = pair
-                        val color = getAdaptiveNoteColor(hex, isDark)
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(CircleShape)
-                                .background(color)
-                                .border(
-                                    width = if (selectedColorHex == hex) 2.dp else 1.dp,
-                                    color = if (selectedColorHex == hex) PrimaryPurple else borderStrokeColor,
-                                    shape = CircleShape
+                    if (note.isChecklist) {
+                        checklistItems.forEachIndexed { index, item ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 1.dp)
+                            ) {
+                                Checkbox(
+                                    checked = item.isChecked,
+                                    onCheckedChange = { isChecked ->
+                                        checklistItems[index] = item.copy(isChecked = isChecked)
+                                    },
+                                    colors = CheckboxDefaults.colors(checkedColor = PrimaryPurple)
                                 )
-                                .clickable { selectedColorHex = hex }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                TextField(
+                                    value = item.text,
+                                    onValueChange = { t ->
+                                        checklistItems[index] = item.copy(text = t)
+                                    },
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        disabledContainerColor = Color.Transparent,
+                                        focusedIndicatorColor = Color.Transparent,
+                                        unfocusedIndicatorColor = Color.Transparent,
+                                        focusedTextColor = textPrimaryColor,
+                                        unfocusedTextColor = textPrimaryColor
+                                    ),
+                                    textStyle = LocalTextStyle.current.copy(
+                                        fontSize = 15.sp,
+                                        textDecoration = if (item.isChecked) TextDecoration.LineThrough else null,
+                                        color = if (item.isChecked) textSecondaryColor.copy(alpha = 0.5f) else textPrimaryColor
+                                    ),
+                                    modifier = Modifier.weight(1f)
+                                )
+                                IconButton(
+                                    onClick = { checklistItems.removeAt(index) },
+                                    modifier = Modifier.size(36.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Hapus Item",
+                                        tint = textSecondaryColor.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Tambah item baru",
+                                tint = textSecondaryColor.copy(alpha = 0.7f),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            TextField(
+                                value = newItemText,
+                                onValueChange = { newItemText = it },
+                                placeholder = { Text("Tambahkan list item...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
+                                colors = TextFieldDefaults.colors(
+                                    focusedContainerColor = Color.Transparent,
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledContainerColor = Color.Transparent,
+                                    focusedIndicatorColor = Color.Transparent,
+                                    unfocusedIndicatorColor = Color.Transparent,
+                                    focusedTextColor = textPrimaryColor,
+                                    unfocusedTextColor = textPrimaryColor
+                                ),
+                                maxLines = 1,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                                keyboardActions = KeyboardActions(onDone = {
+                                    if (newItemText.isNotBlank()) {
+                                        checklistItems.add(ChecklistItem(newItemText.trim(), false))
+                                        newItemText = ""
+                                    }
+                                }),
+                                modifier = Modifier.weight(1f).testTag("add_item_input")
+                            )
+                            if (newItemText.isNotEmpty()) {
+                                IconButton(onClick = {
+                                    checklistItems.add(ChecklistItem(newItemText.trim(), false))
+                                    newItemText = ""
+                                }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Done,
+                                        contentDescription = "Confirm",
+                                        tint = PrimaryPurple
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        TextField(
+                            value = rawTextContent,
+                            onValueChange = { rawTextContent = it },
+                            placeholder = { Text("Tulis ide atau catatan disini...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                disabledContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                                focusedTextColor = textPrimaryColor,
+                                unfocusedTextColor = textPrimaryColor
+                            ),
+                            textStyle = LocalTextStyle.current.copy(fontSize = 15.sp, lineHeight = 22.sp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 350.dp)
+                                .testTag("edit_content_input")
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(40.dp))
                 }
+            }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Action Confirm/Dismiss Save button
-                Button(
-                    onClick = {
-                        val finalContent = if (note.isChecklist) {
-                            Note.createFromChecklist(checklistItems)
-                        } else {
-                            rawTextContent
-                        }
-                        onSave(note.copy(
-                            title = title,
-                            content = finalContent,
-                            colorHex = selectedColorHex,
-                            userEditedTimestamp = System.currentTimeMillis()
-                        ))
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
-                    modifier = Modifier.fillMaxWidth().testTag("save_note_btn")
+            if (lightboxImage != null) {
+                Dialog(
+                    onDismissRequest = { lightboxImage = null }
                 ) {
-                    Text("Simpan & Tutup", color = Color.White)
+                    Card(
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Black),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.85f)
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            AsyncImage(
+                                model = lightboxImage,
+                                contentDescription = "Full size image",
+                                contentScale = ContentScale.Fit,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                            IconButton(
+                                onClick = { lightboxImage = null },
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(12.dp)
+                                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                    .size(36.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Tutup",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
-    }
 }
 
 // Dialog explaining Keep takeout steps and linking options

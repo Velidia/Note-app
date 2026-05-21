@@ -12,7 +12,8 @@ data class Note(
     val colorHex: String = "#FFFFFF", // Theme-aligned custom or Keep note background color
     val userEditedTimestamp: Long = System.currentTimeMillis(),
     val isArchived: Boolean = false,
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val imagePath: String? = null
 ) {
     fun getChecklistItems(): List<ChecklistItem> {
         if (!isChecklist || content.isEmpty()) return emptyList()

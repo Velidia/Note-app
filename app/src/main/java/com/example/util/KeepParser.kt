@@ -1,10 +1,12 @@
 package com.example.util
 
+import android.content.Context
 import com.example.data.Note
 import com.example.data.ChecklistItem
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.InputStream
+import java.io.File
 import java.util.zip.ZipInputStream
 
 object KeepParser {
@@ -12,7 +14,7 @@ object KeepParser {
     /**
      * Parses a single Google Keep Takeout JSON string into our local Note entity.
      */
-    fun parseKeepJson(jsonStr: String): Note? {
+    fun parseKeepJson(jsonStr: String, localImagesDir: File? = null): Note? {
         return try {
             val json = JSONObject(jsonStr)
             val title = json.optString("title", "")
@@ -28,6 +30,24 @@ object KeepParser {
             
             val textContent = json.optString("textContent", "")
             val listContentArray = json.optJSONArray("listContent")
+            
+            // Extract all attachment images if available
+            val attachmentsArray = json.optJSONArray("attachments")
+            val resolvedImagePaths = mutableListOf<String>()
+            if (attachmentsArray != null && attachmentsArray.length() > 0) {
+                for (idx in 0 until attachmentsArray.length()) {
+                    val attachmentObj = attachmentsArray.getJSONObject(idx)
+                    val filePath = attachmentObj.optString("filePath", "")
+                    if (filePath.isNotEmpty() && localImagesDir != null) {
+                        val baseName = filePath.substringAfterLast('/')
+                        val imageFile = File(localImagesDir, baseName)
+                        if (imageFile.exists()) {
+                            resolvedImagePaths.add(imageFile.absolutePath)
+                        }
+                    }
+                }
+            }
+            val resolvedImagePath = if (resolvedImagePaths.isEmpty()) null else resolvedImagePaths.joinToString(",")
             
             if (listContentArray != null && listContentArray.length() > 0) {
                 // Checklist note
@@ -46,7 +66,8 @@ object KeepParser {
                     colorHex = colorHex,
                     userEditedTimestamp = timestamp,
                     isArchived = isArchived,
-                    isPinned = isPinned
+                    isPinned = isPinned,
+                    imagePath = resolvedImagePath
                 )
             } else {
                 // Regular text note
@@ -57,7 +78,8 @@ object KeepParser {
                     colorHex = colorHex,
                     userEditedTimestamp = timestamp,
                     isArchived = isArchived,
-                    isPinned = isPinned
+                    isPinned = isPinned,
+                    imagePath = resolvedImagePath
                 )
             }
         } catch (e: Exception) {
@@ -78,6 +100,16 @@ object KeepParser {
             json.put("color", mapHexToKeepColor(note.colorHex))
             json.put("userEditedTimestampUsec", note.userEditedTimestamp * 1000L)
             json.put("isTrashed", false)
+
+            if (note.imagePath != null) {
+                val attachmentsArray = JSONArray()
+                val attachmentObj = JSONObject()
+                val baseName = note.imagePath.substringAfterLast('/')
+                attachmentObj.put("filePath", baseName)
+                attachmentObj.put("mimetype", "image/jpeg")
+                attachmentsArray.put(attachmentObj)
+                json.put("attachments", attachmentsArray)
+            }
 
             if (note.isChecklist) {
                 json.put("textContent", "")
@@ -101,25 +133,52 @@ object KeepParser {
     }
 
     /**
-     * Parses a Google Keep Takeout ZIP InputStream to bulk import all notes.
+     * Parses a Google Keep Takeout ZIP InputStream to bulk import all notes and extract associated images.
      */
-    fun parseKeepZip(inputStream: InputStream): List<Note> {
+    fun parseKeepZip(inputStream: InputStream, context: Context): List<Note> {
         val notes = mutableListOf<Note>()
+        val jsonContents = mutableListOf<String>()
+        val imagesDir = File(context.filesDir, "keep_images").apply { mkdirs() }
+        
         try {
             val zipStream = ZipInputStream(inputStream)
             var entry = zipStream.nextEntry
             while (entry != null) {
-                if (!entry.isDirectory && entry.name.endsWith(".json", ignoreCase = true)) {
-                    val content = zipStream.bufferedReader().readText()
-                    val note = parseKeepJson(content)
-                    if (note != null) {
-                        notes.add(note)
+                if (!entry.isDirectory) {
+                    val baseName = entry.name.substringAfterLast('/')
+                    val isJson = entry.name.endsWith(".json", ignoreCase = true)
+                    val isImage = entry.name.endsWith(".jpg", ignoreCase = true) ||
+                                  entry.name.endsWith(".jpeg", ignoreCase = true) ||
+                                  entry.name.endsWith(".png", ignoreCase = true) ||
+                                  entry.name.endsWith(".webp", ignoreCase = true) ||
+                                  entry.name.endsWith(".gif", ignoreCase = true)
+                    
+                    if (isJson) {
+                        val content = zipStream.bufferedReader().readText()
+                        jsonContents.add(content)
+                    } else if (isImage) {
+                        try {
+                            val outFile = File(imagesDir, baseName)
+                            outFile.outputStream().use { outStream ->
+                                zipStream.copyTo(outStream)
+                            }
+                        } catch (ex: Exception) {
+                            ex.printStackTrace()
+                        }
                     }
                 }
                 zipStream.closeEntry()
                 entry = zipStream.nextEntry
             }
             zipStream.close()
+            
+            // Process saved JSON contents with access to actual extracted images dir
+            jsonContents.forEach { jsonStr ->
+                val note = parseKeepJson(jsonStr, imagesDir)
+                if (note != null) {
+                    notes.add(note)
+                }
+            }
         } catch (e: Exception) {
             e.printStackTrace()
         }
