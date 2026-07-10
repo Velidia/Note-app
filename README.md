@@ -1,38 +1,47 @@
-# 📱 Notes Keep Local
+# Notes Keep Local 2.0
 
-A modern, native Android notes application built using **Kotlin** and **Jetpack Compose**. This app provides a fully local, privacy-first note-taking experience with an architecture specifically designed to replicate and match Google Keep's rich data structures.
+Aplikasi catatan Android yang menyimpan seluruh data secara lokal. Dibangun dengan Kotlin, Jetpack Compose, Room, dan Material 3.
 
----
+## Fitur
 
-## ✨ Features (Based on Local Room DB)
+- Catatan teks dan checklist
+- Pin, arsip, pencarian, warna, dan beberapa lampiran gambar
+- Tema terang, gelap, atau mengikuti sistem
+- Impor Google Keep dari JSON atau ZIP Google Takeout
+- Deteksi duplikat saat mengimpor
+- Ekspor seluruh catatan dan gambar ke backup ZIP
+- Migrasi database yang mempertahankan data versi sebelumnya
+- Penyimpanan lokal tanpa Android cloud backup
 
-* 🔒 **100% Offline & Local:** Built on top of Android's **Room Database** framework. All notes, checklists, and configurations stay inside your local `notes_database` safely.
-* 📝 **Hybrid Content (Text & Checklists):** Supports both plain text notes and interactive markdown checklist items formatted natively as `[ ] Todo` or `[x] Done`.
-* 📌 **Pin & Archive Management:** Keep your dashboard organized with native note prioritization (Pinned notes stay on top) and archiving capabilities.
-* 🎨 **Keep-Aligned Custom Themes:** Supports background customization per note using a 6-digit Hex Color (`colorHex`) system to match standard Google Keep aesthetics.
-* 🖼️ **Local Image Mapping:** Integrated with **Coil Compose** to seamlessly attach and load local image paths (`imagePath`) within your notes.
+## Menjalankan proyek
 
----
+### Prasyarat
 
-## 🛠️ Technical Specifications & Stack
+- Android Studio versi terbaru yang kompatibel dengan Android Gradle Plugin 9.1.1
+- Android SDK 36
+- JDK 17 (JBR bawaan Android Studio dapat digunakan)
 
-* **UI Engine:** Jetpack Compose (using Material 3 BOM)
-* **Local Persistence:** Room Database with destructive migration fallback
-* **JSON Processing:** Moshi Kotlin (with KSP Codegen compiler tools)
-* **Image Loading:** Coil Compose
-* **Target SDK:** 36 (Android 16)
-* **Min SDK:** 24 (Android 7.0)
+### Langkah
 
----
+1. Buka Android Studio.
+2. Pilih **Open**, lalu pilih direktori proyek ini.
+3. Tunggu Gradle sync selesai.
+4. Jalankan konfigurasi `app` pada emulator atau perangkat Android minimal API 24.
 
-## 🚀 Local Deployment Guide
+Dari terminal Windows, unit test dapat dijalankan dengan:
 
-### Prerequisites
-* [Android Studio](https://developer.android.com/studio) installed.
+```powershell
+.\gradlew.bat testDebugUnitTest
+```
 
-### Setup Steps
+Aplikasi tidak membutuhkan Gemini API key, akun Google, atau izin internet.
 
-1. **Clone the Repository:**
-   ```bash
-   git clone [https://github.com/Velidia/Note-app.git](https://github.com/Velidia/Note-app.git)
-   cd Note-app
+## Backup dan pemulihan
+
+Buka **Setelan → Backup Lokal → Ekspor Backup ZIP** untuk menyimpan seluruh catatan beserta gambar. Berkas ZIP tersebut dapat dipulihkan melalui tombol **Pilih ZIP / JSON**.
+
+Untuk mengimpor Google Keep, unduh data Keep dari [Google Takeout](https://takeout.google.com/) dan pilih berkas ZIP hasil ekspor tanpa perlu mengekstraknya.
+
+## Privasi
+
+Database dan lampiran disimpan di penyimpanan internal aplikasi. Android cloud backup dinonaktifkan. Data hanya keluar dari aplikasi ketika pengguna memilih lokasi ekspor backup sendiri.

@@ -1,6 +1,7 @@
 {
   "name": "Notes Keep Local",
-  "description": "A clean, minimalist local notes application with the ability to import and export Google Keep notes.",
+  "version": "2.0",
+  "description": "A clean, minimalist local notes application with Google Keep import and local ZIP backup.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

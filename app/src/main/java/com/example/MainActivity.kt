@@ -1,6 +1,5 @@
 package com.example
 
-import android.content.Context
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Toast
@@ -34,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,6 +56,7 @@ import com.example.data.ChecklistItem
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.theme.*
 import com.example.util.KeepParser
+import com.example.viewmodel.NoteEditorState
 import com.example.viewmodel.NoteViewModel
 import kotlinx.coroutines.launch
 import coil.compose.AsyncImage
@@ -69,6 +70,8 @@ import java.util.Locale
 
 // Dynamic CompositionLocal to dispatch Dark Mode active flag downstream
 val LocalDarkTheme = compositionLocalOf { false }
+
+
 
 fun getAdaptiveNoteColor(colorHex: String, isDark: Boolean): Color {
     if (!isDark) {
@@ -149,12 +152,11 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
     val testQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val isArchiveState by viewModel.showArchived.collectAsStateWithLifecycle()
     val importToast by viewModel.importResult.collectAsStateWithLifecycle()
+    val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Modal Control States
-    var showEditDialog by remember { mutableStateOf<Note?>(null) }
-    var isCreatingChecklist by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
+    var showImportDialog by rememberSaveable { mutableStateOf(false) }
     var showRawPasteDialog by remember { mutableStateOf(false) }
 
     // File selection picker launchers
@@ -163,6 +165,13 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
     ) { uri: Uri? ->
         if (uri != null) {
             viewModel.importFileFromUri(uri)
+        }
+    }
+    val backupFileLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.exportBackupToUri(uri)
         }
     }
 
@@ -206,7 +215,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Sinkronisasi Google Keep",
+                            text = "Catatan lokal & backup ZIP",
                             fontSize = 11.sp,
                             color = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary
                         )
@@ -277,10 +286,10 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                 if (activeTab != "setelan") {
                     NotesFloatingActionButton(
                         onAddTextNote = {
-                            showEditDialog = Note(title = "", content = "", isChecklist = false)
+                            viewModel.openEditor(Note(title = "", content = "", isChecklist = false))
                         },
                         onAddChecklistNote = {
-                            showEditDialog = Note(title = "", content = "", isChecklist = true)
+                            viewModel.openEditor(Note(title = "", content = "", isChecklist = true))
                         }
                     )
                 }
@@ -344,13 +353,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                                     items(notes, key = { it.id }) { note ->
                                         NoteGridCard(
                                             note = note,
-                                            modifier = Modifier.animateItemPlacement(
-                                                 animationSpec = spring(
-                                                     dampingRatio = Spring.DampingRatioNoBouncy,
-                                                     stiffness = Spring.StiffnessMediumLow
-                                                 )
-                                             ),
-                                             onClick = { showEditDialog = note },
+                                             onClick = { viewModel.openEditor(note) },
                                             onPinChanged = { viewModel.togglePin(note) },
                                             onChecklistItemToggled = { itemIndex, checkedState ->
                                                 val items = note.getChecklistItems().toMutableList()
@@ -370,6 +373,10 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                             viewModel = viewModel,
                             onSelectFile = { filePickerLauncher.launch("*/*") },
                             onPasteJson = { showRawPasteDialog = true },
+                            onExportBackup = {
+                                val timestamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
+                                backupFileLauncher.launch("notes-keep-local-$timestamp.zip")
+                            },
                             onResetDb = { viewModel.resetDatabase() }
                         )
                     }
@@ -380,10 +387,10 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
 }
 
     // Active note snapshot for smooth transition slide-out
-    var activeEditNote by remember { mutableStateOf<Note?>(null) }
-    val isEditOpen = showEditDialog != null
-    if (isEditOpen && showEditDialog != activeEditNote) {
-        activeEditNote = showEditDialog
+    var activeEditState by remember { mutableStateOf<NoteEditorState?>(null) }
+    val isEditOpen = editorState != null
+    if (editorState != null && editorState != activeEditState) {
+        activeEditState = editorState
     }
 
     // Modal Sheet: Note Creator and Editor with elegant transitions
@@ -404,25 +411,41 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
             )
         ) + fadeOut(animationSpec = spring(stiffness = Spring.StiffnessMediumLow))
     ) {
-        activeEditNote?.let { note ->
+        activeEditState?.let { state ->
             NoteEditDialog(
-                note = note,
-                onDismiss = { showEditDialog = null },
+                note = state.note,
+                pendingChecklistItem = state.pendingChecklistItem,
+                isCopyingImages = state.isCopyingImages,
+                onDraftChanged = viewModel::updateEditorNote,
+                onPendingChecklistItemChanged = viewModel::updatePendingChecklistItem,
+                onImagesSelected = viewModel::addImagesToEditor,
+                onDismiss = viewModel::closeEditor,
                 onSave = { updatedNote ->
                     viewModel.saveNote(updatedNote)
-                    showEditDialog = null
+                    viewModel.closeEditor()
                 },
-                onDelete = {
-                    viewModel.deleteNote(note.id)
-                    showEditDialog = null
+                onDelete = { draft ->
+                    viewModel.deleteNote(draft)
+                    viewModel.closeEditor()
                 },
-                onArchiveToggle = {
-                    viewModel.toggleArchive(note)
-                    showEditDialog = null
+                onArchiveToggle = { draft ->
+                    viewModel.saveNote(
+                        draft.copy(
+                            isArchived = !draft.isArchived,
+                            userEditedTimestamp = System.currentTimeMillis()
+                        )
+                    )
+                    viewModel.closeEditor()
                 },
-                onPinToggle = {
-                    viewModel.togglePin(note)
-                    showEditDialog = showEditDialog?.copy(isPinned = !note.isPinned)
+                onPinToggle = { draft ->
+                    val pinned = draft.copy(
+                        isPinned = !draft.isPinned,
+                        userEditedTimestamp = System.currentTimeMillis()
+                    )
+                    if (pinned.id != 0) {
+                        viewModel.saveNote(pinned)
+                    }
+                    viewModel.updateEditorNote(pinned)
                 }
             )
         }
@@ -448,10 +471,8 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
         PasteJsonRawDialog(
             onDismiss = { showRawPasteDialog = false },
             onImport = { jsonText ->
-                val succeed = viewModel.importKeepJsonContent(jsonText)
-                if (succeed) {
-                    showRawPasteDialog = false
-                }
+                viewModel.importKeepJsonContent(jsonText)
+                showRawPasteDialog = false
             }
         )
     }
@@ -613,7 +634,7 @@ fun KeepImportBanner(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Hubungkan Google Keep",
+                        text = "Impor Google Keep",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = textAndIconTint
@@ -1096,10 +1117,12 @@ fun SettingsAndBackupTab(
     viewModel: NoteViewModel,
     onSelectFile: () -> Unit,
     onPasteJson: () -> Unit,
+    onExportBackup: () -> Unit,
     onResetDb: () -> Unit
 ) {
-    var confirmDeleteAll by remember { mutableStateOf(false) }
+    var confirmDeleteAll by rememberSaveable { mutableStateOf(false) }
     val themeOption by viewModel.darkModeOption.collectAsStateWithLifecycle()
+    val backupInProgress by viewModel.backupInProgress.collectAsStateWithLifecycle()
     val isDark = LocalDarkTheme.current
 
     val textPrimaryColor = if (isDark) Color.White else TextPrimary
@@ -1115,13 +1138,13 @@ fun SettingsAndBackupTab(
     ) {
         item {
             Text(
-                text = "Pengaturan & Sinkronisasi",
+                text = "Pengaturan & Backup",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = textPrimaryColor
             )
             Text(
-                text = "Konfigurasi integrasi Google Keep dan manajemen penyimpanan lokal.",
+                text = "Kelola impor Google Keep, backup ZIP, dan penyimpanan lokal.",
                 fontSize = 12.sp,
                 color = textSecondaryColor
             )
@@ -1269,6 +1292,57 @@ fun SettingsAndBackupTab(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
+                        text = "Backup Lokal",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        color = textPrimaryColor
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Simpan semua catatan dan gambar ke satu berkas ZIP yang dapat diimpor kembali.",
+                        fontSize = 11.sp,
+                        color = textSecondaryColor
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = onExportBackup,
+                        enabled = !backupInProgress,
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
+                        modifier = Modifier.fillMaxWidth().testTag("export_backup_btn")
+                    ) {
+                        if (backupInProgress) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            if (backupInProgress) "Membuat Backup..." else "Ekspor Backup ZIP",
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            Card(
+                colors = CardDefaults.cardColors(containerColor = cardColor),
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, cardBorderColor, RoundedCornerShape(16.dp))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
                         text = "Manajemen Database",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
@@ -1323,86 +1397,61 @@ fun SettingsAndBackupTab(
 @Composable
 fun NoteEditDialog(
     note: Note,
+    pendingChecklistItem: String,
+    isCopyingImages: Boolean,
+    onDraftChanged: (Note) -> Unit,
+    onPendingChecklistItemChanged: (String) -> Unit,
+    onImagesSelected: (List<Uri>) -> Unit,
     onDismiss: () -> Unit,
     onSave: (Note) -> Unit,
-    onDelete: () -> Unit,
-    onArchiveToggle: () -> Unit,
-    onPinToggle: () -> Unit
+    onDelete: (Note) -> Unit,
+    onArchiveToggle: (Note) -> Unit,
+    onPinToggle: (Note) -> Unit
 ) {
-    var title by remember { mutableStateOf(note.title) }
-    var rawTextContent by remember { mutableStateOf(if (note.isChecklist) "" else note.content) }
-    var selectedColorHex by remember { mutableStateOf(note.colorHex) }
-    var selectedImagePaths by remember {
-        mutableStateOf(
-            if (note.imagePath.isNullOrBlank()) emptyList<String>()
-            else note.imagePath.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        )
+    var lightboxImage by rememberSaveable(note.id) { mutableStateOf<String?>(null) }
+    var confirmDelete by rememberSaveable(note.id) { mutableStateOf(false) }
+    val selectedImagePaths = remember(note.imagePath) {
+        note.imagePath.orEmpty().split(",").map { it.trim() }.filter { it.isNotEmpty() }
     }
-    var lightboxImage by remember { mutableStateOf<String?>(null) }
-    
-    // Checklist processing elements
-    val checklistItems = remember { 
-        mutableStateListOf<ChecklistItem>().apply {
-            addAll(note.getChecklistItems())
-        }
+    val checklistItems = remember(note.content, note.isChecklist) {
+        note.getChecklistItems()
     }
-    var newItemText by remember { mutableStateOf("") }
     val context = LocalContext.current
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris: List<Uri> ->
-        if (uris.isNotEmpty()) {
-            val newList = selectedImagePaths.toMutableList()
-            uris.forEach { uri ->
-                try {
-                    val contentResolver = context.contentResolver
-                    val imagesDir = java.io.File(context.filesDir, "keep_images").apply { mkdirs() }
-                    val fileName = "local_img_${System.currentTimeMillis()}_${java.util.UUID.randomUUID()}.jpg"
-                    val localFile = java.io.File(imagesDir, fileName)
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        localFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    newList.add(localFile.absolutePath)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-            selectedImagePaths = newList
-        }
-    }
+        contract = ActivityResultContracts.GetMultipleContents(),
+        onResult = onImagesSelected
+    )
 
     val isDark = LocalDarkTheme.current
-    val noteBg = getAdaptiveNoteColor(selectedColorHex, isDark)
+    val noteBg = getAdaptiveNoteColor(note.colorHex, isDark)
     val textPrimaryColor = if (isDark) Color.White else TextPrimary
     val textSecondaryColor = if (isDark) Color(0xFFCCC5D0) else TextSecondary
     val borderStrokeColor = if (isDark) Color(0xFF3E3D42) else BorderGray
 
-    val saveAndDismiss = {
-        val finalContent = if (note.isChecklist) {
-            Note.createFromChecklist(checklistItems)
+    val committedDraft = {
+        val content = if (note.isChecklist && pendingChecklistItem.isNotBlank()) {
+            Note.createFromChecklist(
+                checklistItems + ChecklistItem(pendingChecklistItem.trim(), false)
+            )
         } else {
-            rawTextContent
+            note.content
         }
-        val finalImagePath = if (selectedImagePaths.isEmpty()) null else selectedImagePaths.joinToString(",")
-        val hasChanged = (note.id == 0) || 
-                         (title != note.title) || 
-                         (finalContent != note.content) || 
-                         (selectedColorHex != note.colorHex) ||
-                         (finalImagePath != note.imagePath)
-
-        val finalTimestamp = if (hasChanged) System.currentTimeMillis() else note.userEditedTimestamp
-
-        onSave(note.copy(
-            title = title,
-            content = finalContent,
-            colorHex = selectedColorHex,
-            userEditedTimestamp = finalTimestamp,
-            imagePath = finalImagePath
-        ))
-        onDismiss()
+        if (pendingChecklistItem.isNotBlank()) {
+            onPendingChecklistItemChanged("")
+        }
+        note.copy(
+            content = content,
+            userEditedTimestamp = System.currentTimeMillis()
+        )
+    }
+    val saveAndDismiss = {
+        if (isCopyingImages) {
+            Toast.makeText(context, "Tunggu sampai gambar selesai disalin", Toast.LENGTH_SHORT).show()
+        } else {
+            onSave(committedDraft())
+            onDismiss()
+        }
     }
 
     BackHandler {
@@ -1433,7 +1482,10 @@ fun NoteEditDialog(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = onPinToggle) {
+                            IconButton(
+                                onClick = { onPinToggle(committedDraft()) },
+                                enabled = !isCopyingImages
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Star,
                                     contentDescription = "Pin Note",
@@ -1441,7 +1493,10 @@ fun NoteEditDialog(
                                 )
                             }
 
-                            IconButton(onClick = onArchiveToggle) {
+                            IconButton(
+                                onClick = { onArchiveToggle(committedDraft()) },
+                                enabled = !isCopyingImages
+                            ) {
                                 Icon(
                                     imageVector = Icons.Default.Home,
                                     contentDescription = "Archive note",
@@ -1451,10 +1506,10 @@ fun NoteEditDialog(
                             }
 
                             if (note.id != 0) {
-                                IconButton(onClick = {
-                                    onDelete()
-                                    onDismiss()
-                                }) {
+                                IconButton(
+                                    onClick = { confirmDelete = true },
+                                    enabled = !isCopyingImages
+                                ) {
                                     Icon(
                                         imageVector = Icons.Default.Delete,
                                         contentDescription = "Delete Note",
@@ -1466,7 +1521,10 @@ fun NoteEditDialog(
                             
                             Spacer(modifier = Modifier.width(4.dp))
                             
-                            TextButton(onClick = { saveAndDismiss() }) {
+                            TextButton(
+                                onClick = { saveAndDismiss() },
+                                enabled = !isCopyingImages
+                            ) {
                                 Text(
                                     text = "Selesai",
                                     color = PrimaryPurple,
@@ -1516,11 +1574,13 @@ fun NoteEditDialog(
                                             .clip(CircleShape)
                                             .background(color)
                                             .border(
-                                                width = if (selectedColorHex == hex) 2.5.dp else 1.dp,
-                                                color = if (selectedColorHex == hex) PrimaryPurple else borderStrokeColor.copy(alpha = 0.3f),
+                                                width = if (note.colorHex == hex) 2.5.dp else 1.dp,
+                                                color = if (note.colorHex == hex) PrimaryPurple else borderStrokeColor.copy(alpha = 0.3f),
                                                 shape = CircleShape
                                             )
-                                            .clickable { selectedColorHex = hex }
+                                            .clickable(enabled = !isCopyingImages) {
+                                                onDraftChanged(note.copy(colorHex = hex))
+                                            }
                                     )
                                 }
                             }
@@ -1533,25 +1593,40 @@ fun NoteEditDialog(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            IconButton(onClick = {
-                                try {
-                                    imagePickerLauncher.launch("image/*")
-                                } catch (e: Exception) {
-                                    Toast.makeText(context, "Tidak ada aplikasi untuk memilih gambar", Toast.LENGTH_SHORT).show()
-                                }
-                            }) {
+                            IconButton(
+                                onClick = {
+                                    try {
+                                        imagePickerLauncher.launch("image/*")
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Tidak ada aplikasi untuk memilih gambar", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                enabled = !isCopyingImages
+                            ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Image,
-                                        contentDescription = "Tambah Foto",
-                                        tint = PrimaryPurple,
-                                        modifier = Modifier.size(22.dp)
-                                    )
+                                    if (isCopyingImages) {
+                                        CircularProgressIndicator(
+                                            color = PrimaryPurple,
+                                            strokeWidth = 2.dp,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Image,
+                                            contentDescription = "Tambah Foto",
+                                            tint = PrimaryPurple,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
                                     Text(
-                                        text = "Gambar (${selectedImagePaths.size})",
+                                        text = if (isCopyingImages) {
+                                            "Menyalin gambar..."
+                                        } else {
+                                            "Gambar (${selectedImagePaths.size})"
+                                        },
                                         color = textSecondaryColor,
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.SemiBold
@@ -1608,7 +1683,16 @@ fun NoteEditDialog(
                                     
                                     IconButton(
                                         onClick = { 
-                                            selectedImagePaths = selectedImagePaths.toMutableList().apply { removeAt(index) }
+                                            val remainingPaths = selectedImagePaths
+                                                .toMutableList()
+                                                .apply { removeAt(index) }
+                                            onDraftChanged(
+                                                note.copy(
+                                                    imagePath = remainingPaths
+                                                        .takeIf { it.isNotEmpty() }
+                                                        ?.joinToString(",")
+                                                )
+                                            )
                                         },
                                         modifier = Modifier
                                             .align(Alignment.TopEnd)
@@ -1645,8 +1729,8 @@ fun NoteEditDialog(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     TextField(
-                        value = title,
-                        onValueChange = { title = it },
+                        value = note.title,
+                        onValueChange = { onDraftChanged(note.copy(title = it)) },
                         placeholder = { Text("Judul", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 22.sp, fontWeight = FontWeight.Bold) },
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
@@ -1677,15 +1761,23 @@ fun NoteEditDialog(
                                 Checkbox(
                                     checked = item.isChecked,
                                     onCheckedChange = { isChecked ->
-                                        checklistItems[index] = item.copy(isChecked = isChecked)
+                                        val updatedItems = checklistItems.toMutableList()
+                                        updatedItems[index] = item.copy(isChecked = isChecked)
+                                        onDraftChanged(
+                                            note.copy(content = Note.createFromChecklist(updatedItems))
+                                        )
                                     },
                                     colors = CheckboxDefaults.colors(checkedColor = PrimaryPurple)
                                 )
                                 Spacer(modifier = Modifier.width(6.dp))
                                 TextField(
                                     value = item.text,
-                                    onValueChange = { t ->
-                                        checklistItems[index] = item.copy(text = t)
+                                    onValueChange = { text ->
+                                        val updatedItems = checklistItems.toMutableList()
+                                        updatedItems[index] = item.copy(text = text)
+                                        onDraftChanged(
+                                            note.copy(content = Note.createFromChecklist(updatedItems))
+                                        )
                                     },
                                     colors = TextFieldDefaults.colors(
                                         focusedContainerColor = Color.Transparent,
@@ -1704,7 +1796,12 @@ fun NoteEditDialog(
                                     modifier = Modifier.weight(1f)
                                 )
                                 IconButton(
-                                    onClick = { checklistItems.removeAt(index) },
+                                    onClick = {
+                                        val updatedItems = checklistItems.toMutableList().apply { removeAt(index) }
+                                        onDraftChanged(
+                                            note.copy(content = Note.createFromChecklist(updatedItems))
+                                        )
+                                    },
                                     modifier = Modifier.size(36.dp)
                                 ) {
                                     Icon(
@@ -1729,8 +1826,8 @@ fun NoteEditDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             TextField(
-                                value = newItemText,
-                                onValueChange = { newItemText = it },
+                                value = pendingChecklistItem,
+                                onValueChange = onPendingChecklistItemChanged,
                                 placeholder = { Text("Tambahkan list item...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
@@ -1744,17 +1841,35 @@ fun NoteEditDialog(
                                 maxLines = 1,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                                 keyboardActions = KeyboardActions(onDone = {
-                                    if (newItemText.isNotBlank()) {
-                                        checklistItems.add(ChecklistItem(newItemText.trim(), false))
-                                        newItemText = ""
+                                    if (pendingChecklistItem.isNotBlank()) {
+                                        onDraftChanged(
+                                            note.copy(
+                                                content = Note.createFromChecklist(
+                                                    checklistItems + ChecklistItem(
+                                                        pendingChecklistItem.trim(),
+                                                        false
+                                                    )
+                                                )
+                                            )
+                                        )
+                                        onPendingChecklistItemChanged("")
                                     }
                                 }),
                                 modifier = Modifier.weight(1f).testTag("add_item_input")
                             )
-                            if (newItemText.isNotEmpty()) {
+                            if (pendingChecklistItem.isNotBlank()) {
                                 IconButton(onClick = {
-                                    checklistItems.add(ChecklistItem(newItemText.trim(), false))
-                                    newItemText = ""
+                                    onDraftChanged(
+                                        note.copy(
+                                            content = Note.createFromChecklist(
+                                                checklistItems + ChecklistItem(
+                                                    pendingChecklistItem.trim(),
+                                                    false
+                                                )
+                                            )
+                                        )
+                                    )
+                                    onPendingChecklistItemChanged("")
                                 }) {
                                     Icon(
                                         imageVector = Icons.Default.Done,
@@ -1766,8 +1881,8 @@ fun NoteEditDialog(
                         }
                     } else {
                         TextField(
-                            value = rawTextContent,
-                            onValueChange = { rawTextContent = it },
+                            value = note.content,
+                            onValueChange = { onDraftChanged(note.copy(content = it)) },
                             placeholder = { Text("Tulis ide atau catatan disini...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
@@ -1829,6 +1944,30 @@ fun NoteEditDialog(
                         }
                     }
                 }
+            }
+
+            if (confirmDelete) {
+                AlertDialog(
+                    onDismissRequest = { confirmDelete = false },
+                    title = { Text("Hapus catatan?") },
+                    text = { Text("Catatan dan gambar yang tidak dipakai lagi akan dihapus permanen.") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                confirmDelete = false
+                                onDelete(committedDraft())
+                                onDismiss()
+                            }
+                        ) {
+                            Text("Hapus", color = NoteRed)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { confirmDelete = false }) {
+                            Text("Batal")
+                        }
+                    }
+                )
             }
         }
 }
