@@ -37,7 +37,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
     private val dataMutex = Mutex()
 
     val darkModeOption = MutableStateFlow(prefs.getString("dark_mode_option", "system") ?: "system")
-    val currentTab = MutableStateFlow("catatan")
+    val currentTab = MutableStateFlow("notes")
     val showArchived = MutableStateFlow(false)
     val searchQuery = MutableStateFlow("")
     val importResult = MutableStateFlow<String?>(null)
@@ -136,12 +136,12 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 if (failedCount > 0) {
-                    importResult.value = "$failedCount gambar gagal disalin atau melebihi batas 25 MB"
+                    importResult.value = "$failedCount images failed to copy or exceeded the 25 MB limit"
                 }
             } catch (exception: Exception) {
                 copiedPaths.forEach { File(it).delete() }
                 editorState.value = editorState.value?.copy(isCopyingImages = false)
-                importResult.value = "Gagal menambahkan gambar: ${exception.message ?: "berkas tidak dapat diproses"}"
+                importResult.value = "Failed to add image: ${exception.message ?: "berkas tidak dapat diproses"}"
             }
         }
     }
@@ -157,7 +157,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
         notes.filter { note ->
             val matchesArchive = note.isArchived == isArchivedState
             val matchesTab = when (tab) {
-                "tugas" -> note.isChecklist
+                "tasks" -> note.isChecklist
                 else -> true
             }
             val matchesSearch = query.isBlank() ||
@@ -234,16 +234,16 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
                 val imagesDir = File(app.filesDir, "keep_images")
                 val parsed = KeepParser.parseKeepJson(jsonStr, imagesDir)
                 if (parsed == null) {
-                    importResult.value = "Format JSON Keep tidak valid atau catatan berada di Sampah"
+                    importResult.value = "Invalid Keep JSON or note is in Trash"
                     return@withLock
                 }
 
                 val inserted = repository.insertIfNew(parsed)
                 if (!inserted) cleanupUnreferencedImagesLocked(parsed.imageFiles())
                 importResult.value = if (inserted) {
-                    "Catatan Keep berhasil diimpor"
+                    "Keep note imported successfully"
                 } else {
-                    "Catatan yang sama sudah pernah diimpor"
+                    "This note was already imported"
                 }
             }
         }
@@ -266,7 +266,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
                     val inputStream = contentResolver.openInputStream(uri)
                     if (inputStream == null) {
-                        importResult.value = "Gagal membuka berkas terpilih"
+                        importResult.value = "Failed to open selected file"
                         return@withLock
                     }
 
@@ -288,13 +288,13 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
                             val (inserted, skipped) = importNotesLocked(importedNotes)
                             importResult.value = when {
                                 inserted == 0 && skipped > 0 ->
-                                    "Semua $skipped catatan sudah pernah diimpor"
+                                    "All $skipped notes were already imported"
                                 inserted == 0 ->
-                                    "Tidak ditemukan catatan Keep yang valid di dalam ZIP"
+                                    "No valid Keep notes found in the ZIP"
                                 skipped > 0 ->
-                                    "$inserted catatan diimpor, $skipped duplikat dilewati"
+                                    "$inserted notes imported, $skipped duplicates skipped"
                                 else ->
-                                    "Berhasil mengimpor $inserted catatan dari ZIP"
+                                    "Successfully imported $inserted notes from ZIP"
                             }
                         } else {
                             val jsonStr = readTextWithLimit(stream, MAX_JSON_IMPORT_BYTES)
@@ -303,21 +303,21 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
                                 File(context.filesDir, "keep_images").apply { mkdirs() }
                             )
                             if (note == null) {
-                                importResult.value = "Format JSON Keep tidak valid atau catatan berada di Sampah"
+                                importResult.value = "Invalid Keep JSON or note is in Trash"
                             } else {
                                 val inserted = repository.insertIfNew(note)
                                 if (!inserted) cleanupUnreferencedImagesLocked(note.imageFiles())
                                 importResult.value = if (inserted) {
-                                    "Berhasil mengimpor: '${note.title.ifBlank { "Tanpa Judul" }}'"
+                                    "Successfully imported: '${note.title.ifBlank { "Tanpa Judul" }}'"
                                 } else {
-                                    "Catatan yang sama sudah pernah diimpor"
+                                    "This note was already imported"
                                 }
                             }
                         }
                     }
                 }
             } catch (exception: Exception) {
-                importResult.value = "Kesalahan impor: ${exception.message ?: "berkas tidak dapat diproses"}"
+                importResult.value = "Import error: ${exception.message ?: "berkas tidak dapat diproses"}"
             }
         }
     }
@@ -329,31 +329,31 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
                 dataMutex.withLock {
                     val notes = repository.getAllNotesOnce()
                     if (notes.isEmpty()) {
-                        importResult.value = "Belum ada catatan untuk dicadangkan"
+                        importResult.value = "No notes to back up yet"
                         return@withLock
                     }
 
                     val resolver = getApplication<Application>().contentResolver
                     val outputStream = resolver.openOutputStream(uri, "w")
                     if (outputStream == null) {
-                        importResult.value = "Gagal membuat berkas backup"
+                        importResult.value = "Failed to create backup file"
                         return@withLock
                     }
 
                     val exportedCount = outputStream.use { stream ->
                         KeepParser.exportNotesToZip(notes, stream)
                     }
-                    importResult.value = "$exportedCount catatan berhasil dicadangkan"
+                    importResult.value = "$exportedCount notes backed up successfully"
                 }
             } catch (exception: Exception) {
-                importResult.value = "Backup gagal: ${exception.message ?: "berkas tidak dapat ditulis"}"
+                importResult.value = "Backup failed: ${exception.message ?: "berkas tidak dapat ditulis"}"
             } finally {
                 backupInProgress.value = false
             }
         }
     }
 
-    fun clearImportResult() {
+    fun clearImporttResult() {
         importResult.value = null
     }
 
@@ -365,7 +365,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
                 repository.deleteAll()
                 cleanupUnreferencedImagesLocked(imageFiles)
                 cleanupOrphanedImageDirectoryLocked()
-                importResult.value = "Basis data dan lampiran lokal dikosongkan"
+                importResult.value = "Local database and attachments cleared"
             }
         }
     }

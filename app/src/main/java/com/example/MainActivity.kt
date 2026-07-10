@@ -156,7 +156,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
     val context = LocalContext.current
 
     // Modal Control States
-    var showImportDialog by rememberSaveable { mutableStateOf(false) }
+    var showImporttDialog by rememberSaveable { mutableStateOf(false) }
     var showRawPasteDialog by remember { mutableStateOf(false) }
 
     // File selection picker launchers
@@ -179,7 +179,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
     LaunchedEffect(importToast) {
         importToast?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
-            viewModel.clearImportResult()
+            viewModel.clearImporttResult()
         }
     }
 
@@ -215,7 +215,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Catatan lokal & backup ZIP",
+                            text = "Local Notes & ZIP Backup",
                             fontSize = 11.sp,
                             color = if (LocalDarkTheme.current) Color(0xFFCCC5D0) else TextSecondary
                         )
@@ -225,12 +225,12 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                 Spacer(modifier = Modifier.height(12.dp))
                 
                 NavigationDrawerItem(
-                    icon = { Icon(imageVector = Icons.Default.Description, contentDescription = "Catatan") },
-                    label = { Text(text = "Catatan", fontSize = 14.sp) },
-                    selected = activeTab == "catatan",
+                    icon = { Icon(imageVector = Icons.Default.Description, contentDescription = "Notes") },
+                    label = { Text(text = "Notes", fontSize = 14.sp) },
+                    selected = activeTab == "notes",
                     onClick = {
                         scope.launch { drawerState.close() }
-                        viewModel.currentTab.value = "catatan"
+                        viewModel.currentTab.value = "notes"
                     },
                     colors = NavigationDrawerItemDefaults.colors(
                         selectedContainerColor = if (LocalDarkTheme.current) Color(0xFF381E72) else LightPurple,
@@ -243,12 +243,12 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                 )
                 
                 NavigationDrawerItem(
-                    icon = { Icon(imageVector = Icons.Default.List, contentDescription = "Tugas") },
-                    label = { Text(text = "Tugas", fontSize = 14.sp) },
-                    selected = activeTab == "tugas",
+                    icon = { Icon(imageVector = Icons.Default.List, contentDescription = "Tasks") },
+                    label = { Text(text = "Tasks", fontSize = 14.sp) },
+                    selected = activeTab == "tasks",
                     onClick = {
                         scope.launch { drawerState.close() }
-                        viewModel.currentTab.value = "tugas"
+                        viewModel.currentTab.value = "tasks"
                     },
                     colors = NavigationDrawerItemDefaults.colors(
                         selectedContainerColor = if (LocalDarkTheme.current) Color(0xFF381E72) else LightPurple,
@@ -261,12 +261,12 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                 )
                 
                 NavigationDrawerItem(
-                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "Setelan") },
-                    label = { Text(text = "Setelan", fontSize = 14.sp) },
-                    selected = activeTab == "setelan",
+                    icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings") },
+                    label = { Text(text = "Settings", fontSize = 14.sp) },
+                    selected = activeTab == "settings",
                     onClick = {
                         scope.launch { drawerState.close() }
-                        viewModel.currentTab.value = "setelan"
+                        viewModel.currentTab.value = "settings"
                     },
                     colors = NavigationDrawerItemDefaults.colors(
                         selectedContainerColor = if (LocalDarkTheme.current) Color(0xFF381E72) else LightPurple,
@@ -283,7 +283,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             floatingActionButton = {
-                if (activeTab != "setelan") {
+                if (activeTab != "settings") {
                     NotesFloatingActionButton(
                         onAddTextNote = {
                             viewModel.openEditor(Note(title = "", content = "", isChecklist = false))
@@ -311,7 +311,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                 )
 
             // Horizontal Filter bar to access normal vs archived notes
-            if (activeTab != "setelan") {
+            if (activeTab != "settings") {
                 FilterRowHeader(
                     isArchivedMode = isArchiveState,
                     onArchiveModeToggled = { viewModel.showArchived.value = it }
@@ -325,12 +325,12 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                     .fillMaxWidth()
             ) {
                 when (activeTab) {
-                    "catatan", "tugas" -> {
+                    "notes", "tasks" -> {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            // contextual Keep Import Promo banner
+                            // contextual Keep Importt Promo banner
                             if (notes.isEmpty() && testQuery.isEmpty()) {
-                                KeepImportBanner(
-                                    onClick = { showImportDialog = true }
+                                KeepImporttBanner(
+                                    onClick = { showImporttDialog = true }
                                 )
                             }
 
@@ -339,7 +339,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                                 EmptyNotesPlaceholder(
                                     isSearchActive = testQuery.isNotEmpty(),
                                     tab = activeTab,
-                                    onImportClick = { showImportDialog = true }
+                                    onImporttClick = { showImporttDialog = true }
                                 )
                             } else {
                                 // Reactive Staggered-friendly Grid display for notes
@@ -368,7 +368,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                             }
                         }
                     }
-                    "setelan" -> {
+                    "settings" -> {
                         SettingsAndBackupTab(
                             viewModel = viewModel,
                             onSelectFile = { filePickerLauncher.launch("*/*") },
@@ -451,16 +451,16 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
         }
     }
 
-    // Modal Dialog: Import Keep Takeout Hub
-    if (showImportDialog) {
-        KeepImportGuidelinesDialog(
-            onDismiss = { showImportDialog = false },
+    // Modal Dialog: Importt Keep Takeout Hub
+    if (showImporttDialog) {
+        KeepImporttGuidelinesDialog(
+            onDismiss = { showImporttDialog = false },
             onSelectFile = {
-                showImportDialog = false
+                showImporttDialog = false
                 filePickerLauncher.launch("*/*")
             },
             onRawPasteClick = {
-                showImportDialog = false
+                showImporttDialog = false
                 showRawPasteDialog = true
             }
         )
@@ -470,7 +470,7 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
     if (showRawPasteDialog) {
         PasteJsonRawDialog(
             onDismiss = { showRawPasteDialog = false },
-            onImport = { jsonText ->
+            onImportt = { jsonText ->
                 viewModel.importKeepJsonContent(jsonText)
                 showRawPasteDialog = false
             }
@@ -517,7 +517,7 @@ fun HeaderSearchBar(
                 onValueChange = onQueryChanged,
                 placeholder = {
                     Text(
-                        text = "Cari catatan lokal...",
+                        text = "Search local notes...",
                         color = textSecondaryColor,
                         fontSize = 15.sp
                     )
@@ -571,32 +571,32 @@ fun FilterRowHeader(
         FilterChip(
             selected = !isArchivedMode,
             onClick = { onArchiveModeToggled(false) },
-            label = { Text("Utama") },
+            label = { Text("Main") },
             colors = FilterChipDefaults.filterChipColors(
                 selectedContainerColor = selectedChipBg,
                 selectedLabelColor = selectedChipText,
                 containerColor = unselectedChipBg,
                 labelColor = unselectedChipText
             ),
-            modifier = Modifier.testTag("filter_class_utama")
+            modifier = Modifier.testTag("filter_class_main")
         )
         FilterChip(
             selected = isArchivedMode,
             onClick = { onArchiveModeToggled(true) },
-            label = { Text("Arsip") },
+            label = { Text("Archive") },
             colors = FilterChipDefaults.filterChipColors(
                 selectedContainerColor = selectedChipBg,
                 selectedLabelColor = selectedChipText,
                 containerColor = unselectedChipBg,
                 labelColor = unselectedChipText
             ),
-            modifier = Modifier.testTag("filter_class_arsip")
+            modifier = Modifier.testTag("filter_class_archive")
         )
     }
 }
 
 @Composable
-fun KeepImportBanner(
+fun KeepImporttBanner(
     onClick: () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
@@ -634,13 +634,13 @@ fun KeepImportBanner(
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(
-                        text = "Impor Google Keep",
+                        text = "Import Google Keep",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = textAndIconTint
                     )
                     Text(
-                        text = "Impor berkas hasil export Google Takeout (.zip/.json)",
+                        text = "Import Google Takeout export (.zip/.json)",
                         fontSize = 11.sp,
                         color = textSecondaryTint,
                         maxLines = 1,
@@ -650,7 +650,7 @@ fun KeepImportBanner(
             }
             Icon(
                 imageVector = Icons.Default.ArrowForward,
-                contentDescription = "Arahkan",
+                contentDescription = "Pin",
                 tint = textAndIconTint,
                 modifier = Modifier.size(20.dp)
             )
@@ -710,7 +710,7 @@ fun NoteGridCard(
                         1 -> {
                             AsyncImage(
                                 model = images[0],
-                                contentDescription = "Gambar catatan",
+                                contentDescription = "Note image",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
                             )
@@ -718,7 +718,7 @@ fun NoteGridCard(
                         2 -> {
                             AsyncImage(
                                 model = images[0],
-                                contentDescription = "Gambar catatan 1",
+                                contentDescription = "Note image 1",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .weight(1f)
@@ -726,7 +726,7 @@ fun NoteGridCard(
                             )
                             AsyncImage(
                                 model = images[1],
-                                contentDescription = "Gambar catatan 2",
+                                contentDescription = "Note image 2",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .weight(1f)
@@ -736,7 +736,7 @@ fun NoteGridCard(
                         else -> {
                             AsyncImage(
                                 model = images[0],
-                                contentDescription = "Gambar catatan 1",
+                                contentDescription = "Note image 1",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .weight(1f)
@@ -744,7 +744,7 @@ fun NoteGridCard(
                             )
                             AsyncImage(
                                 model = images[1],
-                                contentDescription = "Gambar catatan 2",
+                                contentDescription = "Note image 2",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
                                     .weight(1f)
@@ -758,7 +758,7 @@ fun NoteGridCard(
                             ) {
                                 AsyncImage(
                                     model = images[2],
-                                    contentDescription = "Gambar catatan 3",
+                                    contentDescription = "Note image 3",
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier.fillMaxSize()
                                 )
@@ -877,7 +877,7 @@ fun NoteGridCard(
 fun EmptyNotesPlaceholder(
     isSearchActive: Boolean,
     tab: String,
-    onImportClick: () -> Unit
+    onImporttClick: () -> Unit
 ) {
     val isDark = LocalDarkTheme.current
     val textPrimaryColor = if (isDark) Color.White else TextPrimary
@@ -894,16 +894,16 @@ fun EmptyNotesPlaceholder(
     ) {
         val illustrationIcon = if (isSearchActive) Icons.Default.Search else Icons.Default.Edit
         val mainText = if (isSearchActive) {
-            "Catatan tidak ditemukan"
-        } else if (tab == "tugas") {
-            "Tidak ada tugas checklists"
+            "Notes tidak ditemukan"
+        } else if (tab == "tasks") {
+            "No checklist tasks"
         } else {
-            "Catatan Anda kosong"
+            "Notes Anda kosong"
         }
         val helpText = if (isSearchActive) {
             "Coba cari kata kunci lainnya"
         } else {
-            "Buat catatan lokal baru untuk mulai merekam ide Anda hari ini."
+            "Create a new local note to start capturing today’s ideas."
         }
 
         Box(
@@ -941,10 +941,10 @@ fun EmptyNotesPlaceholder(
             textAlign = androidx.compose.ui.text.style.TextAlign.Center
         )
 
-        if (!isSearchActive && tab == "catatan") {
+        if (!isSearchActive && tab == "notes") {
             Spacer(modifier = Modifier.height(24.dp))
             Button(
-                onClick = onImportClick,
+                onClick = onImporttClick,
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
             ) {
                 Icon(
@@ -953,7 +953,7 @@ fun EmptyNotesPlaceholder(
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Impor dari Google Keep", fontSize = 13.sp)
+                Text("Import from Google Keep", fontSize = 13.sp)
             }
         }
     }
@@ -976,15 +976,15 @@ fun NotesBottomNavigation(
         modifier = Modifier.height(80.dp)
     ) {
         NavigationBarItem(
-            selected = activeTab == "catatan",
-            onClick = { onTabSelected("catatan") },
+            selected = activeTab == "notes",
+            onClick = { onTabSelected("notes") },
             icon = {
                 Icon(
                     imageVector = Icons.Default.Edit,
-                    contentDescription = "Catatan"
+                    contentDescription = "Notes"
                 )
             },
-            label = { Text("Catatan", fontSize = 11.sp) },
+            label = { Text("Notes", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = selectedItemColor,
                 selectedTextColor = selectedItemColor,
@@ -994,15 +994,15 @@ fun NotesBottomNavigation(
             )
         )
         NavigationBarItem(
-            selected = activeTab == "tugas",
-            onClick = { onTabSelected("tugas") },
+            selected = activeTab == "tasks",
+            onClick = { onTabSelected("tasks") },
             icon = {
                 Icon(
                     imageVector = Icons.Default.List,
-                    contentDescription = "Tugas"
+                    contentDescription = "Tasks"
                 )
             },
-            label = { Text("Tugas", fontSize = 11.sp) },
+            label = { Text("Tasks", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = selectedItemColor,
                 selectedTextColor = selectedItemColor,
@@ -1012,15 +1012,15 @@ fun NotesBottomNavigation(
             )
         )
         NavigationBarItem(
-            selected = activeTab == "setelan",
-            onClick = { onTabSelected("setelan") },
+            selected = activeTab == "settings",
+            onClick = { onTabSelected("settings") },
             icon = {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = "Setelan"
+                    contentDescription = "Settings"
                 )
             },
-            label = { Text("Setelan", fontSize = 11.sp) },
+            label = { Text("Settings", fontSize = 11.sp) },
             colors = NavigationBarItemDefaults.colors(
                 selectedIconColor = selectedItemColor,
                 selectedTextColor = selectedItemColor,
@@ -1062,7 +1062,7 @@ fun NotesFloatingActionButton(
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                         .border(1.dp, BorderGray, RoundedCornerShape(12.dp))
                 ) {
-                    Text("Checklist Baru", fontSize = 12.sp, color = TextPrimary)
+                    Text("New Checklist", fontSize = 12.sp, color = TextPrimary)
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Default.List,
@@ -1083,7 +1083,7 @@ fun NotesFloatingActionButton(
                         .padding(horizontal = 12.dp, vertical = 8.dp)
                         .border(1.dp, BorderGray, RoundedCornerShape(12.dp))
                 ) {
-                    Text("Catatan Baru", fontSize = 12.sp, color = TextPrimary)
+                    Text("Notes Baru", fontSize = 12.sp, color = TextPrimary)
                     Spacer(modifier = Modifier.width(6.dp))
                     Icon(
                         imageVector = Icons.Default.Edit,
@@ -1138,13 +1138,13 @@ fun SettingsAndBackupTab(
     ) {
         item {
             Text(
-                text = "Pengaturan & Backup",
+                text = "Settings & Backup",
                 fontWeight = FontWeight.Bold,
                 fontSize = 18.sp,
                 color = textPrimaryColor
             )
             Text(
-                text = "Kelola impor Google Keep, backup ZIP, dan penyimpanan lokal.",
+                text = "Manage Google Keep import, ZIP backup, and local storage.",
                 fontSize = 12.sp,
                 color = textSecondaryColor
             )
@@ -1226,18 +1226,18 @@ fun SettingsAndBackupTab(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Cara Impor dari Google Keep",
+                        text = "How to Import from Google Keep",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = textPrimaryColor
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     val steps = listOf(
-                        "1. Buka laman Google Takeout (takeout.google.com).",
-                        "2. Batalkan pilihan semua data, lalu pilih Google Keep saja.",
-                        "3. Unduh hasil ekspor dalam bentuk berkas ZIP.",
+                        "1. Open Google Takeout (takeout.google.com).",
+                        "2. Deselect all data, then select only Google Keep.",
+                        "3. Download the export as a ZIP file.",
                         "4. Klik tombol di bawah untuk memilih ZIP tersebut,",
-                        "   atau salin-tempel teks JSON dari hasil ekstrak."
+                        "   or paste the JSON text from the extracted files."
                     )
                     steps.forEach { step ->
                         Text(
@@ -1265,7 +1265,7 @@ fun SettingsAndBackupTab(
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Pilih ZIP / JSON", fontSize = 12.sp)
+                            Text("Pick ZIP / JSON", fontSize = 12.sp)
                         }
 
                         OutlinedButton(
@@ -1275,7 +1275,7 @@ fun SettingsAndBackupTab(
                                 contentColor = if (isDark) Color.White else PrimaryPurple
                             )
                         ) {
-                            Text("Tempel JSON", fontSize = 12.sp)
+                            Text("Paste JSON", fontSize = 12.sp)
                         }
                     }
                 }
@@ -1292,14 +1292,14 @@ fun SettingsAndBackupTab(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(
-                        text = "Backup Lokal",
+                        text = "Local Backup",
                         fontWeight = FontWeight.Bold,
                         fontSize = 14.sp,
                         color = textPrimaryColor
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Simpan semua catatan dan gambar ke satu berkas ZIP yang dapat diimpor kembali.",
+                        text = "Save all notes and images into a single re-importable ZIP file.",
                         fontSize = 11.sp,
                         color = textSecondaryColor
                     )
@@ -1325,7 +1325,7 @@ fun SettingsAndBackupTab(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            if (backupInProgress) "Membuat Backup..." else "Ekspor Backup ZIP",
+                            if (backupInProgress) "Creating Backup..." else "Export ZIP Backup",
                             fontSize = 12.sp
                         )
                     }
@@ -1350,7 +1350,7 @@ fun SettingsAndBackupTab(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Semua catatan Anda disimpan di perangkat lokal secara mandiri.",
+                        text = "All your notes are stored privately on your local device.",
                         fontSize = 11.sp,
                         color = textSecondaryColor
                     )
@@ -1362,7 +1362,7 @@ fun SettingsAndBackupTab(
                         colors = ButtonDefaults.buttonColors(containerColor = NoteRed.copy(alpha = 0.9f)),
                         modifier = Modifier.fillMaxWidth().testTag("reset_db_btn")
                     ) {
-                        Text("Kosongkan Semua Catatan Lokal", color = Color.White, fontSize = 12.sp)
+                        Text("Clear All Local Notes", color = Color.White, fontSize = 12.sp)
                     }
                 }
             }
@@ -1372,8 +1372,8 @@ fun SettingsAndBackupTab(
     if (confirmDeleteAll) {
         AlertDialog(
             onDismissRequest = { confirmDeleteAll = false },
-            title = { Text("Kosongkan Semua?") },
-            text = { Text("Tindakan ini akan menghapus semua catatan dan checklist lokal secara permanen. Ekspor Keep tidak akan terpengaruh.") },
+            title = { Text("Clear Everything?") },
+            text = { Text("This will permanently delete all local notes and checklists. Keep exports are unaffected.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -1381,12 +1381,12 @@ fun SettingsAndBackupTab(
                         confirmDeleteAll = false
                     }
                 ) {
-                    Text("Ya, Hapus Semua", color = Color.Red)
+                    Text("Yes, Delete All", color = Color.Red)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { confirmDeleteAll = false }) {
-                    Text("Batal")
+                    Text("Cancel")
                 }
             }
         )
@@ -1447,7 +1447,7 @@ fun NoteEditDialog(
     }
     val saveAndDismiss = {
         if (isCopyingImages) {
-            Toast.makeText(context, "Tunggu sampai gambar selesai disalin", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Wait until images finish copying", Toast.LENGTH_SHORT).show()
         } else {
             onSave(committedDraft())
             onDismiss()
@@ -1476,7 +1476,7 @@ fun NoteEditDialog(
                         IconButton(onClick = { saveAndDismiss() }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Simpan dan Kembali",
+                                contentDescription = "Save & Back",
                                 tint = textPrimaryColor
                             )
                         }
@@ -1553,7 +1553,7 @@ fun NoteEditDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Palette,
-                                contentDescription = "Pilih Warna",
+                                contentDescription = "Pick Color",
                                 tint = textSecondaryColor.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -1598,7 +1598,7 @@ fun NoteEditDialog(
                                     try {
                                         imagePickerLauncher.launch("image/*")
                                     } catch (e: Exception) {
-                                        Toast.makeText(context, "Tidak ada aplikasi untuk memilih gambar", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "No app available to pick images", Toast.LENGTH_SHORT).show()
                                     }
                                 },
                                 enabled = !isCopyingImages
@@ -1623,9 +1623,9 @@ fun NoteEditDialog(
                                     }
                                     Text(
                                         text = if (isCopyingImages) {
-                                            "Menyalin gambar..."
+                                            "Copying images..."
                                         } else {
-                                            "Gambar (${selectedImagePaths.size})"
+                                            "Images (${selectedImagePaths.size})"
                                         },
                                         color = textSecondaryColor,
                                         fontSize = 13.sp,
@@ -1676,7 +1676,7 @@ fun NoteEditDialog(
                                 ) {
                                     AsyncImage(
                                         model = path,
-                                        contentDescription = "Gambar catatan",
+                                        contentDescription = "Note image",
                                         contentScale = ContentScale.Crop,
                                         modifier = Modifier.fillMaxSize()
                                     )
@@ -1702,7 +1702,7 @@ fun NoteEditDialog(
                                     ) {
                                         Icon(
                                             imageVector = Icons.Default.Close,
-                                            contentDescription = "Hapus Gambar",
+                                            contentDescription = "Remove Image",
                                             tint = Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
@@ -1806,7 +1806,7 @@ fun NoteEditDialog(
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Close,
-                                        contentDescription = "Hapus Item",
+                                        contentDescription = "Delete Item",
                                         tint = textSecondaryColor.copy(alpha = 0.5f),
                                         modifier = Modifier.size(18.dp)
                                     )
@@ -1820,7 +1820,7 @@ fun NoteEditDialog(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Tambah item baru",
+                                contentDescription = "Add new item",
                                 tint = textSecondaryColor.copy(alpha = 0.7f),
                                 modifier = Modifier.size(20.dp)
                             )
@@ -1828,7 +1828,7 @@ fun NoteEditDialog(
                             TextField(
                                 value = pendingChecklistItem,
                                 onValueChange = onPendingChecklistItemChanged,
-                                placeholder = { Text("Tambahkan list item...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
+                                placeholder = { Text("Add list item...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
                                 colors = TextFieldDefaults.colors(
                                     focusedContainerColor = Color.Transparent,
                                     unfocusedContainerColor = Color.Transparent,
@@ -1883,7 +1883,7 @@ fun NoteEditDialog(
                         TextField(
                             value = note.content,
                             onValueChange = { onDraftChanged(note.copy(content = it)) },
-                            placeholder = { Text("Tulis ide atau catatan disini...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
+                            placeholder = { Text("Write your idea or note here...", color = textSecondaryColor.copy(alpha = 0.5f), fontSize = 15.sp) },
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
                                 unfocusedContainerColor = Color.Transparent,
@@ -1936,7 +1936,7 @@ fun NoteEditDialog(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Tutup",
+                                    contentDescription = "Close",
                                     tint = Color.White,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -1949,8 +1949,8 @@ fun NoteEditDialog(
             if (confirmDelete) {
                 AlertDialog(
                     onDismissRequest = { confirmDelete = false },
-                    title = { Text("Hapus catatan?") },
-                    text = { Text("Catatan dan gambar yang tidak dipakai lagi akan dihapus permanen.") },
+                    title = { Text("Delete note?") },
+                    text = { Text("The note and its unused images will be permanently deleted.") },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -1959,12 +1959,12 @@ fun NoteEditDialog(
                                 onDismiss()
                             }
                         ) {
-                            Text("Hapus", color = NoteRed)
+                            Text("Delete", color = NoteRed)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { confirmDelete = false }) {
-                            Text("Batal")
+                            Text("Cancel")
                         }
                     }
                 )
@@ -1974,7 +1974,7 @@ fun NoteEditDialog(
 
 // Dialog explaining Keep takeout steps and linking options
 @Composable
-fun KeepImportGuidelinesDialog(
+fun KeepImporttGuidelinesDialog(
     onDismiss: () -> Unit,
     onSelectFile: () -> Unit,
     onRawPasteClick: () -> Unit
@@ -1990,13 +1990,13 @@ fun KeepImportGuidelinesDialog(
                     modifier = Modifier.size(28.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Impor dari Google Keep")
+                Text("Import from Google Keep")
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Aplikasi ini memproses data hasil ekspor Google Keep dari Google Takeout untuk melestarikan data Anda sepenuhnya secara lokal.",
+                    text = "This app processes your Google Keep Takeout export to keep your data fully local.",
                     fontSize = 13.sp,
                     color = TextPrimary
                 )
@@ -2009,8 +2009,8 @@ fun KeepImportGuidelinesDialog(
                 )
 
                 Text(
-                    text = "• Metode Berkas (ZIP/JSON): Pilih file ZIP dari Google Takeout secara utuh atau pilih berkas JSON tunggal.\n" +
-                           "• Tempel Cepat: Salin teks dalam file JSON Keep dan tempelkan ke aplikasi langsung.",
+                    text = "• File Method (ZIP/JSON): Pick the whole Takeout ZIP or a single JSON file.\n" +
+                           "• Quick Paste: Copy the text inside a Keep JSON file and paste it straight into the app.",
                     fontSize = 12.sp,
                     color = TextSecondary,
                     lineHeight = 16.sp
@@ -2022,12 +2022,12 @@ fun KeepImportGuidelinesDialog(
                 onClick = onSelectFile,
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple)
             ) {
-                Text("Pilih ZIP/JSON")
+                Text("Pick ZIP/JSON")
             }
         },
         dismissButton = {
             TextButton(onClick = onRawPasteClick) {
-                Text("Cepat Tempel")
+                Text("Quick Paste")
             }
         }
     )
@@ -2037,16 +2037,16 @@ fun KeepImportGuidelinesDialog(
 @Composable
 fun PasteJsonRawDialog(
     onDismiss: () -> Unit,
-    onImport: (String) -> Unit
+    onImportt: (String) -> Unit
 ) {
     var rawJson by remember { mutableStateOf("") }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tempel JSON Google Keep") },
+        title = { Text("Paste JSON Google Keep") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Tempel isi teks berkas JSON catatan Google Keep Anda di bawah ini:", fontSize = 12.sp)
+                Text("Paste the JSON text of your Google Keep note below:", fontSize = 12.sp)
                 OutlinedTextField(
                     value = rawJson,
                     onValueChange = { rawJson = it },
@@ -2062,17 +2062,17 @@ fun PasteJsonRawDialog(
         },
         confirmButton = {
             Button(
-                onClick = { onImport(rawJson) },
+                onClick = { onImportt(rawJson) },
                 enabled = rawJson.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
                 modifier = Modifier.testTag("raw_json_submit_btn")
             ) {
-                Text("Impor")
+                Text("Import")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Batal")
+                Text("Cancel")
             }
         }
     )

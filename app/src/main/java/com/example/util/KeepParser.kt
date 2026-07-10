@@ -249,7 +249,7 @@ object KeepParser {
      */
     fun parseKeepZip(inputStream: InputStream, context: Context): List<Note> {
         val imagesDir = File(context.filesDir, "keep_images")
-        val jsonEntries = mutableListOf<ImportedJsonEntry>()
+        val jsonEntries = mutableListOf<ImporttedJsonEntry>()
         val extractedImages = mutableListOf<ExtractedImage>()
         val createdFiles = mutableListOf<File>()
         val usedLocalNames = imagesDir.listFiles()
@@ -286,7 +286,7 @@ object KeepParser {
                     when {
                         isJson -> {
                             jsonEntries.add(
-                                ImportedJsonEntry(
+                                ImporttedJsonEntry(
                                     entryName = entryName,
                                     bytes = readEntryBytes(zipStream, entryLimit, budget)
                                 )
@@ -396,7 +396,7 @@ object KeepParser {
         "#BBDEFB" to "Biru (Blue)",
         "#B3E5FC" to "Biru Muda (Cerulean)",
         "#D1C4E9" to "Ungu (Purple)",
-        "#F8BBD0" to "Merah Muda (Pink)",
+        "#F8BBD0" to "Pink",
         "#D7CCC8" to "Cokelat (Brown)",
         "#CFD8DC" to "Abu-abu (Gray)"
     )
@@ -694,7 +694,7 @@ object KeepParser {
         val bytes: ByteArray
     )
 
-    private data class ImportedJsonEntry(
+    private data class ImporttedJsonEntry(
         val entryName: String,
         val bytes: ByteArray
     )

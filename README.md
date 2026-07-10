@@ -1,47 +1,76 @@
-# Notes Keep Local 2.0
+# 📱 Notes Keep Local
 
-Aplikasi catatan Android yang menyimpan seluruh data secara lokal. Dibangun dengan Kotlin, Jetpack Compose, Room, dan Material 3.
+A modern, native Android notes application built using **Kotlin** and **Jetpack Compose**. This app provides a fully local, privacy-first note-taking experience with an architecture specifically designed to replicate and match Google Keep's rich data structures.
 
-## Fitur
+---
 
-- Catatan teks dan checklist
-- Pin, arsip, pencarian, warna, dan beberapa lampiran gambar
-- Tema terang, gelap, atau mengikuti sistem
-- Impor Google Keep dari JSON atau ZIP Google Takeout
-- Deteksi duplikat saat mengimpor
-- Ekspor seluruh catatan dan gambar ke backup ZIP
-- Migrasi database yang mempertahankan data versi sebelumnya
-- Penyimpanan lokal tanpa Android cloud backup
+## ✨ Features (Based on Local Room DB)
 
-## Menjalankan proyek
+* 🔒 **100% Offline & Local:** Built on top of Android's **Room Database** framework. All notes, checklists, and configurations stay inside your local `notes_database` safely.
+* 📝 **Hybrid Content (Text & Checklists):** Supports both plain text notes and interactive markdown checklist items formatted natively as `[ ] Todo` or `[x] Done`.
+* 📌 **Pin & Archive Management:** Keep your dashboard organized with native note prioritization (Pinned notes stay on top) and archiving capabilities.
+* 🎨 **Keep-Aligned Custom Themes:** Supports background customization per note using a 6-digit Hex Color (`colorHex`) system to match standard Google Keep aesthetics.
+* 🖼️ **Local Image Mapping:** Integrated with **Coil Compose** to seamlessly attach and load local image paths (`imagePath`) within your notes.
+* 🔁 **Google Keep Import:** Import notes and images directly from a Google Takeout ZIP or a single Keep JSON file, with automatic **duplicate detection** so re-imports stay clean.
+* 💾 **ZIP Backup & Restore:** Export every note and image into a single re-importable ZIP, with non-destructive database migration that preserves your existing data.
+* 🛡️ **Privacy Hardened:** Android cloud backup and auto-sync are fully disabled — your data never leaves the device unless you choose to export it.
 
-### Prasyarat
+---
 
-- Android Studio versi terbaru yang kompatibel dengan Android Gradle Plugin 9.1.1
-- Android SDK 36
-- JDK 17 (JBR bawaan Android Studio dapat digunakan)
+## 🛠️ Technical Specifications & Stack
 
-### Langkah
+* **UI Engine:** Jetpack Compose (using Material 3 BOM)
+* **Local Persistence:** Room Database with non-destructive migration (`imagePath` column added in v2)
+* **Duplicate Prevention:** SHA-256 attachment signature matching on import
+* **JSON Processing:** Moshi Kotlin (with KSP compiler tooling)
+* **Image Loading:** Coil Compose
+* **Target SDK:** 36 (Android 16)
+* **Min SDK:** 24 (Android 7.0)
+* **Version:** 2.0.0
 
-1. Buka Android Studio.
-2. Pilih **Open**, lalu pilih direktori proyek ini.
-3. Tunggu Gradle sync selesai.
-4. Jalankan konfigurasi `app` pada emulator atau perangkat Android minimal API 24.
+---
 
-Dari terminal Windows, unit test dapat dijalankan dengan:
+## 🚀 Local Deployment Guide
+
+### Prerequisites
+* [Android Studio](https://developer.android.com/studio) installed.
+
+### Setup Steps
+
+1. **Clone the Repository:**
+   ```bash
+   git clone https://github.com/Velidia/Note-app.git
+   cd Note-app
+   ```
+
+2. **Open in Android Studio:**
+   - Launch Android Studio.
+   - Choose **Open** and select the cloned `Note-app` directory.
+
+3. **Sync & Run:**
+   - Wait for Gradle to finish syncing.
+   - Run the `app` configuration on an emulator or a physical device (minimum API 24).
+
+### Building from the Command Line
+
+From the project root on Windows PowerShell:
 
 ```powershell
-.\gradlew.bat testDebugUnitTest
+.\gradlew.bat assembleDebug
 ```
 
-Aplikasi tidak membutuhkan Gemini API key, akun Google, atau izin internet.
+The resulting APK is written to `app/build/outputs/apk/debug/`. No Gemini API key, Google account, or internet permission is required to build or run the app.
 
-## Backup dan pemulihan
+---
 
-Buka **Setelan → Backup Lokal → Ekspor Backup ZIP** untuk menyimpan seluruh catatan beserta gambar. Berkas ZIP tersebut dapat dipulihkan melalui tombol **Pilih ZIP / JSON**.
+## 📦 Backup & Restore
 
-Untuk mengimpor Google Keep, unduh data Keep dari [Google Takeout](https://takeout.google.com/) dan pilih berkas ZIP hasil ekspor tanpa perlu mengekstraknya.
+Open **Settings → Local Backup → Export ZIP Backup** to save all notes and images. The ZIP can be restored later via the **Pick ZIP / JSON** button.
 
-## Privasi
+To import from Google Keep, download your data from [Google Takeout](https://takeout.google.com/) and select the resulting ZIP — no extraction needed.
 
-Database dan lampiran disimpan di penyimpanan internal aplikasi. Android cloud backup dinonaktifkan. Data hanya keluar dari aplikasi ketika pengguna memilih lokasi ekspor backup sendiri.
+---
+
+## 🔐 Privacy
+
+The database and attachments are stored in the app's internal storage. Android cloud backup is disabled. Data only leaves the device when you explicitly choose an export location for your backup.
