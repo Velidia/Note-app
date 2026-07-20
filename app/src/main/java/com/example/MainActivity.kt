@@ -13,6 +13,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -353,8 +355,17 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                                     items(notes, key = { it.id }) { note ->
                                         NoteGridCard(
                                             note = note,
-                                             onClick = { viewModel.openEditor(note) },
-                                            onPinChanged = { viewModel.togglePin(note) },
+                                            onClick = { viewModel.openEditor(note) },
+                                            onTogglePin = { viewModel.togglePin(note) },
+                                            onArchive = {
+                                                viewModel.saveNote(
+                                                    note.copy(
+                                                        isArchived = !note.isArchived,
+                                                        userEditedTimestamp = System.currentTimeMillis()
+                                                    )
+                                                )
+                                            },
+                                            onDelete = { viewModel.deleteNote(note) },
                                             onChecklistItemToggled = { itemIndex, checkedState ->
                                                 val items = note.getChecklistItems().toMutableList()
                                                 if (itemIndex in items.indices) {
@@ -663,7 +674,9 @@ fun KeepImporttBanner(
 fun NoteGridCard(
     note: Note,
     onClick: () -> Unit,
-    onPinChanged: () -> Unit,
+    onTogglePin: () -> Unit,
+    onArchive: () -> Unit,
+    onDelete: () -> Unit,
     onChecklistItemToggled: (Int, Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -672,6 +685,9 @@ fun NoteGridCard(
     val textPrimaryColor = if (isDark) Color.White else TextPrimary
     val textSecondaryColor = if (isDark) Color(0xFFCCC5D0) else TextSecondary
     val borderStrokeColor = if (isDark) Color(0xFF3E3D42) else BorderGray
+
+    var showMenu by remember { mutableStateOf(false) }
+    var menuAnchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
 
     val images = remember(note.imagePath) {
         if (note.imagePath.isNullOrBlank()) emptyList<String>()
@@ -691,7 +707,7 @@ fun NoteGridCard(
             )
             .combinedClickable(
                 onClick = onClick,
-                onLongClick = onPinChanged
+                onLongClick = { showMenu = true }
             )
             .testTag("note_card_${note.id}")
     ) {
@@ -868,6 +884,53 @@ fun NoteGridCard(
                     modifier = Modifier.weight(1f)
                 )
             }
+        }
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text(if (note.isPinned) "Unpin" else "Pin") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Star,
+                        contentDescription = null,
+                        tint = if (note.isPinned) PrimaryPurple else textSecondaryColor
+                    )
+                },
+                onClick = {
+                    showMenu = false
+                    onTogglePin()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text(if (note.isArchived) "Unarchive" else "Archive") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = null,
+                        tint = textSecondaryColor
+                    )
+                },
+                onClick = {
+                    showMenu = false
+                    onArchive()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Delete") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = NoteRed
+                    )
+                },
+                onClick = {
+                    showMenu = false
+                    onDelete()
+                }
+            )
         }
     }
 }
@@ -1440,16 +1503,33 @@ fun NoteEditDialog(
         if (pendingChecklistItem.isNotBlank()) {
             onPendingChecklistItemChanged("")
         }
-        note.copy(
-            content = content,
-            userEditedTimestamp = System.currentTimeMillis()
-        )
+        val draft = note.copy(content = content)
+        // Only bump the edited timestamp when the note actually changed.
+        // Opening and closing a note without edits must NOT move it to the top.
+        val changed = draft.title != note.title ||
+            draft.content != note.content ||
+            draft.colorHex != note.colorHex ||
+            draft.imagePath != note.imagePath ||
+            draft.isChecklist != note.isChecklist
+        if (changed) {
+            draft.copy(userEditedTimestamp = System.currentTimeMillis())
+        } else {
+            draft
+        }
     }
     val saveAndDismiss = {
         if (isCopyingImages) {
             Toast.makeText(context, "Wait until images finish copying", Toast.LENGTH_SHORT).show()
         } else {
-            onSave(committedDraft())
+            val draft = committedDraft()
+            val changed = draft.title != note.title ||
+                draft.content != note.content ||
+                draft.colorHex != note.colorHex ||
+                draft.imagePath != note.imagePath ||
+                draft.isChecklist != note.isChecklist
+            if (changed || note.id == 0) {
+                onSave(draft)
+            }
             onDismiss()
         }
     }
@@ -1668,8 +1748,8 @@ fun NoteEditDialog(
                             selectedImagePaths.forEachIndexed { index, path ->
                                 Box(
                                     modifier = Modifier
-                                        .width(260.dp)
-                                        .height(170.dp)
+                                        .width(240.dp)
+                                        .height(200.dp)
                                         .clip(RoundedCornerShape(12.dp))
                                         .background(Color.Black.copy(alpha = 0.05f))
                                         .clickable { lightboxImage = path }
@@ -1677,7 +1757,7 @@ fun NoteEditDialog(
                                     AsyncImage(
                                         model = path,
                                         contentDescription = "Note image",
-                                        contentScale = ContentScale.Crop,
+                                        contentScale = ContentScale.Fit,
                                         modifier = Modifier.fillMaxSize()
                                     )
                                     
@@ -1906,41 +1986,60 @@ fun NoteEditDialog(
             }
 
             if (lightboxImage != null) {
+                val initialPage = selectedImagePaths.indexOf(lightboxImage).coerceAtLeast(0)
+                val pagerState = rememberPagerState(initialPage = initialPage) { selectedImagePaths.size }
                 Dialog(
-                    onDismissRequest = { lightboxImage = null }
+                    onDismissRequest = { lightboxImage = null },
+                    properties = DialogProperties(usePlatformDefaultWidth = false)
                 ) {
-                    Card(
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color.Black),
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.85f)
+                            .fillMaxSize()
+                            .background(Color.Black)
                     ) {
-                        Box(
+                        HorizontalPager(
+                            state = pagerState,
                             modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            AsyncImage(
-                                model = lightboxImage,
-                                contentDescription = "Full size image",
-                                contentScale = ContentScale.Fit,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                            IconButton(
-                                onClick = { lightboxImage = null },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(12.dp)
-                                    .background(Color.Black.copy(alpha = 0.6f), CircleShape)
-                                    .size(36.dp)
+                            verticalAlignment = Alignment.CenterVertically
+                        ) { page ->
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Close",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
+                                AsyncImage(
+                                    model = selectedImagePaths[page],
+                                    contentDescription = "Full size image ${page + 1}",
+                                    contentScale = ContentScale.Fit,
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
+                        }
+                        if (selectedImagePaths.size > 1) {
+                            Text(
+                                text = "${pagerState.currentPage + 1} / ${selectedImagePaths.size}",
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .padding(top = 24.dp)
+                                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = { lightboxImage = null },
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(16.dp)
+                                .background(Color.Black.copy(alpha = 0.6f), CircleShape)
+                                .size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
                         }
                     }
                 }
