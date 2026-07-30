@@ -1481,8 +1481,6 @@ fun NoteEditDialog(
             onPendingChecklistItemChanged("")
         }
         val draft = note.copy(content = content)
-        // Only bump the edited timestamp when the note actually changed.
-        // Opening and closing a note without edits must NOT move it to the top.
         val changed = draft.title != note.title ||
             draft.content != note.content ||
             draft.colorHex != note.colorHex ||
