@@ -29,10 +29,7 @@ object KeepParser {
         .adapter(Any::class.java)
         .indent("  ")
 
-    /**
-     * Parses a single Google Keep Takeout JSON string into our local Note entity.
-     */
-    fun parseKeepJson(jsonStr: String, localImagesDir: File? = null): Note? {
+        fun parseKeepJson(jsonStr: String, localImagesDir: File? = null): Note? {
         return parseKeepJsonInternal(jsonStr) { filePath ->
             resolveLocalImage(localImagesDir, filePath)
         }
@@ -59,7 +56,6 @@ object KeepParser {
             val isArchived = json.booleanValue("isArchived")
             val isPinned = json.booleanValue("isPinned")
 
-            // Map color of Keep to clean minimalist soft background color
             val colorHex = mapKeepColorToHex(json.stringValue("color", "DEFAULT"))
 
             val timestampUsec = json.longValue("userEditedTimestampUsec")
@@ -125,10 +121,7 @@ object KeepParser {
         }
     }
 
-    /**
-     * Serializes a single Note entity into a Google Keep Takeout JSON compatible string.
-     */
-    fun exportToKeepJson(note: Note): String {
+        fun exportToKeepJson(note: Note): String {
         return try {
             jsonAdapter.toJson(
                 buildKeepJson(note, splitImagePaths(note.imagePath).map(::portableBaseName))
@@ -138,13 +131,7 @@ object KeepParser {
         }
     }
 
-    /**
-     * Writes notes and their existing images to a ZIP compatible with [parseKeepZip].
-     *
-     * The returned count is the number of note JSON entries written. The supplied
-     * [outputStream] is flushed but remains open.
-     */
-    fun exportNotesToZip(notes: List<Note>, outputStream: OutputStream): Int {
+        fun exportNotesToZip(notes: List<Note>, outputStream: OutputStream): Int {
         val attachmentsBySource = linkedMapOf<String, ExportAttachment>()
         val noteAttachmentEntries = notes.map { note ->
             splitImagePaths(note.imagePath).mapNotNull { imagePath ->
@@ -244,10 +231,7 @@ object KeepParser {
         return notes.size
     }
 
-    /**
-     * Parses a Google Keep Takeout ZIP InputStream to bulk import all notes and extract associated images.
-     */
-    fun parseKeepZip(inputStream: InputStream, context: Context): List<Note> {
+        fun parseKeepZip(inputStream: InputStream, context: Context): List<Note> {
         val imagesDir = File(context.filesDir, "keep_images")
         val jsonEntries = mutableListOf<ImporttedJsonEntry>()
         val extractedImages = mutableListOf<ExtractedImage>()
@@ -344,10 +328,7 @@ object KeepParser {
         }
     }
 
-    /**
-     * Maps Google Keep's string color tags to real hexadecimal soft background tones
-     */
-    fun mapKeepColorToHex(keepColor: String): String {
+        fun mapKeepColorToHex(keepColor: String): String {
         return when (keepColor.uppercase()) {
             "DEFAULT" -> "#FFFFFF"
             "RED" -> "#FFCDD2"
@@ -365,10 +346,7 @@ object KeepParser {
         }
     }
 
-    /**
-     * Inverse mapping of Clean Minimal Hex codes to Keep string color tags.
-     */
-    fun mapHexToKeepColor(hex: String): String {
+        fun mapHexToKeepColor(hex: String): String {
         return when (hex.uppercase()) {
             "#FFFFFF" -> "DEFAULT"
             "#FFCDD2" -> "RED"

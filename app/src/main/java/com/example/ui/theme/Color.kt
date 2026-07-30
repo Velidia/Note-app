@@ -2,19 +2,16 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Minimal Purple / Pastel tones
 val PrimaryPurple = Color(0xFF6750A4)
 val MediumPurple = Color(0xFFD0BCFF)
 val LightPurple = Color(0xFFEADDFF)
 val BackgroundPurple = Color(0xFFFEF7FF)
 val BarColor = Color(0xFFF3EDF7)
 
-// Text and neutral colors
 val TextPrimary = Color(0xFF1D1B20)
 val TextSecondary = Color(0xFF49454F)
 val BorderGray = Color(0xFFCAC4D0)
 
-// Standard pastel notes backgrounds
 val NoteWhite = Color(0xFFFFFFFF)
 val NoteRed = Color(0xFFFFCDD2)
 val NoteOrange = Color(0xFFFFE0B2)

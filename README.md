@@ -10,7 +10,7 @@ A modern, native Android notes application built using **Kotlin** and **Jetpack 
 * **Hybrid Content (Text & Checklists):** Supports both plain text notes and interactive markdown checklist items formatted natively as `[ ] Todo` or `[x] Done`.
 * **Pin & Archive Management:** Keep your dashboard organized with native note prioritization (Pinned notes stay on top) and archiving capabilities.
 * **Keep-Aligned Custom Themes:** Supports background customization per note using a 6-digit Hex Color (`colorHex`) system to match standard Google Keep aesthetics.
-* **Local Image Mapping:** Integrated with **Coil Compose** to seamlessly attach and load local image paths (`imagePath`) within your notes.
+* **Local Image Mapping:** Integrated with **Coil Compose** to attach and load local image paths (`imagePath`) within your notes.
 * **Google Keep Import:** Import notes and images directly from a Google Takeout ZIP or a single Keep JSON file, with automatic **duplicate detection** so re-imports stay clean.
 * **ZIP Backup & Restore:** Export every note and image into a single re-importable ZIP, with non-destructive database migration that preserves your existing data.
 * **Privacy Hardened:** Android cloud backup and auto-sync are fully disabled — your data never leaves the device unless you choose to export it.

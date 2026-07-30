@@ -3,8 +3,7 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Beautiful notes folder with checkmark and list rows representing Local Google Keep -->
-    <!-- External notebook pad -->
+        <!-- External notebook pad -->
     <path
         android:fillColor="#EADDFF"
         android:pathData="M32,24h44c3.3,0,6,2.7,6,6v48c0,3.3-2.7,6-6,6H32c-3.3,0-6-2.7-6-6V30C26,26.7,28.7,24,32,24z" />

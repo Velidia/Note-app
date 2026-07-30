@@ -70,10 +70,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Dynamic CompositionLocal to dispatch Dark Mode active flag downstream
 val LocalDarkTheme = compositionLocalOf { false }
-
-
 
 fun getAdaptiveNoteColor(colorHex: String, isDark: Boolean): Color {
     if (!isDark) {
@@ -106,7 +103,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Support devices with high screen refresh rates (e.g. 90Hz, 120Hz) programmatically
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             try {
                 val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
@@ -157,11 +153,9 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // Modal Control States
     var showImporttDialog by rememberSaveable { mutableStateOf(false) }
     var showRawPasteDialog by remember { mutableStateOf(false) }
 
-    // File selection picker launchers
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -177,7 +171,6 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
         }
     }
 
-    // Display a clean Toast notification when import outcomes trigger
     LaunchedEffect(importToast) {
         importToast?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_LONG).show()
@@ -303,7 +296,6 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                     .background(if (LocalDarkTheme.current) Color(0xFF141218) else BackgroundPurple)
                     .padding(innerPadding)
             ) {
-                // Elegant Top search App Bar representing "Clean Minimalism" header
                 HeaderSearchBar(
                     query = testQuery,
                     onQueryChanged = { viewModel.searchQuery.value = it },
@@ -312,7 +304,6 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                     }
                 )
 
-            // Horizontal Filter bar to access normal vs archived notes
             if (activeTab != "settings") {
                 FilterRowHeader(
                     isArchivedMode = isArchiveState,
@@ -320,7 +311,6 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                 )
             }
 
-            // Centralized Content Screen
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -329,7 +319,6 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                 when (activeTab) {
                     "notes", "tasks" -> {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            // contextual Keep Importt Promo banner
                             if (notes.isEmpty() && testQuery.isEmpty()) {
                                 KeepImporttBanner(
                                     onClick = { showImporttDialog = true }
@@ -337,14 +326,12 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
                             }
 
                             if (notes.isEmpty()) {
-                                // Graceful Empty States
                                 EmptyNotesPlaceholder(
                                     isSearchActive = testQuery.isNotEmpty(),
                                     tab = activeTab,
                                     onImporttClick = { showImporttDialog = true }
                                 )
                             } else {
-                                // Reactive Staggered-friendly Grid display for notes
                                 LazyVerticalGrid(
                                     columns = GridCells.Fixed(2),
                                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -397,14 +384,12 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
     }
 }
 
-    // Active note snapshot for smooth transition slide-out
     var activeEditState by remember { mutableStateOf<NoteEditorState?>(null) }
     val isEditOpen = editorState != null
     if (editorState != null && editorState != activeEditState) {
         activeEditState = editorState
     }
 
-    // Modal Sheet: Note Creator and Editor with elegant transitions
     AnimatedVisibility(
         visible = isEditOpen,
         enter = slideInVertically(
@@ -462,7 +447,6 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
         }
     }
 
-    // Modal Dialog: Importt Keep Takeout Hub
     if (showImporttDialog) {
         KeepImporttGuidelinesDialog(
             onDismiss = { showImporttDialog = false },
@@ -477,7 +461,6 @@ fun MainNotesApp(viewModel: NoteViewModel = viewModel()) {
         )
     }
 
-    // Modal Dialog: Paste raw json text directement
     if (showRawPasteDialog) {
         PasteJsonRawDialog(
             onDismiss = { showRawPasteDialog = false },
@@ -831,7 +814,6 @@ fun NoteGridCard(
             Spacer(modifier = Modifier.height(6.dp))
 
             if (note.isChecklist) {
-                // Checklist Render Snippet
                 val items = note.getChecklistItems().take(3)
                 Column(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -873,7 +855,6 @@ fun NoteGridCard(
                     }
                 }
             } else {
-                // Text note Render Snippet
                 Text(
                     text = note.content.ifEmpty { "Kosong" },
                     fontSize = 11.sp,
@@ -1103,7 +1084,6 @@ fun NotesFloatingActionButton(
     var expanded by remember { mutableStateOf(false) }
 
     Box(contentAlignment = Alignment.BottomEnd) {
-        // Overlay selection elements when active
         AnimatedVisibility(
             visible = expanded,
             enter = fadeIn() + slideInVertically(initialOffsetY = { it / 2 }),
@@ -1174,7 +1154,6 @@ fun NotesFloatingActionButton(
     }
 }
 
-// Full Notes Backup configuration view
 @Composable
 fun SettingsAndBackupTab(
     viewModel: NoteViewModel,
@@ -1213,7 +1192,6 @@ fun SettingsAndBackupTab(
             )
         }
 
-        // Beautiful Interactive Dark Mode Preference Option
         item {
             Card(
                 colors = CardDefaults.cardColors(containerColor = cardColor),
@@ -1456,7 +1434,6 @@ fun SettingsAndBackupTab(
     }
 }
 
-// High-fidelity fully featured Edit/Compose Note Dialog
 @Composable
 fun NoteEditDialog(
     note: Note,
@@ -2071,7 +2048,6 @@ fun NoteEditDialog(
         }
 }
 
-// Dialog explaining Keep takeout steps and linking options
 @Composable
 fun KeepImporttGuidelinesDialog(
     onDismiss: () -> Unit,
@@ -2132,7 +2108,6 @@ fun KeepImporttGuidelinesDialog(
     )
 }
 
-// Dialog allowing direct paste of raw single keep json data
 @Composable
 fun PasteJsonRawDialog(
     onDismiss: () -> Unit,
@@ -2177,7 +2152,6 @@ fun PasteJsonRawDialog(
     )
 }
 
-// Mini padding wrapper helping M3 spacing grid layout
 @Composable
 fun PaddingBox(
     top: Int = 12,
