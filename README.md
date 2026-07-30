@@ -74,3 +74,9 @@ To import from Google Keep, download your data from [Google Takeout](https://tak
 ## 🔐 Privacy
 
 The database and attachments are stored in the app's internal storage. Android cloud backup is disabled. Data only leaves the device when you explicitly choose an export location for your backup.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
